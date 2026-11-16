@@ -12,3 +12,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 이 저장소를 수정하기 전에 반드시 루트의 `PROJECT_CONTEXT.md`를 읽고 그 제품 운영 계약을 우선합니다.
 특히 WordPress는 현재 선택 사항이며, 일일 GitHub Actions → Firestore → Notion → ChatGPT Plus 수동 검증 흐름을 깨뜨리지 않습니다.
+
+## 저장소 패치 방식
+
+사용자 전달용 코드 수정은 `PROJECT_CONTEXT.md`의 `개발/패치 적용 규칙`을 따른다. 별도 브랜치/PR을 기본 흐름으로 만들지 않는다.
+

@@ -116,3 +116,22 @@ Notion의 `작성 완료`는 최종 발행이 아니다.
 - Evidence가 없는 경험담 생성
 
 사용자가 충분히 검증한 뒤 필요한 부분만 단계적으로 자동화한다.
+
+## 개발/패치 적용 규칙
+
+이 저장소의 사용자 전달 패치는 다음 규칙을 따른다.
+
+- 새 작업 브랜치를 만들지 않고 `main`에 직접 적용한다.
+- 변경 파일은 ZIP 패키지와 macOS용 `apply.command`로 제공한다.
+- 대상 로컬 저장소는 `/Users/ungveloper/Desktop/UNG/problem-solving-research-web`이다.
+- 적용 전 기존 사용자 변경사항과 untracked 파일을 보존한다.
+- `origin/main`을 `--ff-only`로 동기화한 뒤 변경한다.
+- `npm ci`, `npm run lint`, `npm run build`를 모두 통과해야만 push한다.
+- 최종 push는 `git push -u origin main`을 사용한다.
+- 검증 실패 시 원격 main에는 push하지 않고, 적용 전 상태로 rollback한다.
+- 커밋 메시지는 다음 컨벤션을 지킨다.
+  - `추가:` 새 기능이 실제로 추가될 때만 사용
+  - `고침:` 오류/버그를 실제로 고칠 때만 사용
+  - `변경:` 그 외 수정에 사용
+- 사용자의 기존 로컬 파일을 임의로 `git add .` 하지 않고, 이번 패치 대상 파일만 명시적으로 stage한다.
+
