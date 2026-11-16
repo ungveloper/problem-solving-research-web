@@ -7,6 +7,7 @@ import {
   type ProblemStatus,
   type RejectionScope,
 } from "@/lib/domain";
+import { captureDailySelectionResult } from "@/lib/daily-result";
 import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib/firestore";
 
 const NOTION_API = "https://api.notion.com/v1";
@@ -31,6 +32,26 @@ async function notionFetch(path: string, init: RequestInit = {}) {
     throw new Error(`Notion API 호출 실패: ${response.status} ${await response.text()}`);
   }
   return response;
+}
+
+async function ensureDailyResultCaptureSchema() {
+  if (!env.notionDataSourceId) return { added: [] as string[] };
+  const response = await notionFetch(`/data_sources/${env.notionDataSourceId}`);
+  const dataSource = (await response.json()) as { properties?: Record<string, unknown> };
+  const properties = dataSource.properties ?? {};
+  const additions: Record<string, unknown> = {};
+
+  if (!("선택 결과 JSON" in properties)) additions["선택 결과 JSON"] = { rich_text: {} };
+  if (!("결과 반영" in properties)) additions["결과 반영"] = { checkbox: {} };
+
+  const added = Object.keys(additions);
+  if (added.length > 0) {
+    await notionFetch(`/data_sources/${env.notionDataSourceId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ properties: additions }),
+    });
+  }
+  return { added };
 }
 
 function richText(content?: string) {
@@ -92,8 +113,10 @@ function baseDailyPromptProperties(id: string, daily: DailyPromptRecord) {
     "세부 영역": { select: null },
     "유형": { select: { name: "DAILY_RESEARCH" } },
     "추천점수": { number: null },
-    "Problem ID": { rich_text: [] },
+    "Problem ID": { rich_text: richText(daily.linkedProblemId ?? "") },
     "Mission ID": { rich_text: [] },
+    "선택 결과 JSON": { rich_text: richText(daily.selectionJson ?? "") },
+    "결과 반영": { checkbox: false },
     "연재 유형": { select: null },
     "현재 일차": { number: null },
     "관련 기존 글": { rich_text: richText(daily.mode === "CONTINUATION_FIRST" ? "진행 중 문제 우선" : "신규 문제 탐색") },
@@ -121,6 +144,24 @@ export async function createProblemNotionPage(id: string, problem: ProblemRecord
         ),
       },
     },
+    ...(problem.contentConcept
+      ? [
+          {
+            object: "block",
+            type: "paragraph",
+            paragraph: { rich_text: richText(`선택 콘텐츠 콘셉트: ${problem.contentConcept}`) },
+          },
+        ]
+      : []),
+    ...(problem.missionSummary
+      ? [
+          {
+            object: "block",
+            type: "paragraph",
+            paragraph: { rich_text: richText(`현재 Mission: ${problem.missionSummary}`) },
+          },
+        ]
+      : []),
     {
       object: "block",
       type: "heading_2",
@@ -143,6 +184,7 @@ export async function createProblemNotionPage(id: string, problem: ProblemRecord
 
 export async function createDailyPromptNotionPage(id: string, daily: DailyPromptRecord) {
   if (!env.notionDataSourceId) throw new Error("NOTION_DATA_SOURCE_ID가 설정되지 않았습니다.");
+  await ensureDailyResultCaptureSchema();
 
   const children = [
     {
@@ -163,6 +205,20 @@ export async function createDailyPromptNotionPage(id: string, daily: DailyPrompt
       heading_2: { rich_text: richText("ChatGPT Plus에 그대로 붙여넣기") },
     },
     ...promptBlocks(daily.prompt),
+    {
+      object: "block",
+      type: "heading_2",
+      heading_2: { rich_text: richText("선택 결과를 Problem 기억으로 반영") },
+    },
+    {
+      object: "block",
+      type: "paragraph",
+      paragraph: {
+        rich_text: richText(
+          "ChatGPT 답변 맨 마지막의 PROBLEM_MEMORY_JSON만 '선택 결과 JSON' 속성에 붙여넣고 '결과 반영'을 체크하세요. 다음 GitHub Action이 Firestore Problem으로 저장하거나 기존 Problem에 연결한 뒤 Problem ID를 기록합니다.",
+        ),
+      },
+    },
   ];
 
   const response = await notionFetch("/pages", {
@@ -211,6 +267,11 @@ function plainText(property?: NotionProperty) {
   return "";
 }
 
+function checkboxValue(property?: NotionProperty) {
+  if (!property) return false;
+  return property.checkbox === true;
+}
+
 async function queryNotionPages() {
   if (!env.notionDataSourceId) return [] as NotionPage[];
   const pages: NotionPage[] = [];
@@ -236,12 +297,14 @@ async function queryNotionPages() {
 
 export async function syncNotionStatuses() {
   if (!env.notionApiKey || !env.notionDataSourceId) {
-    return { skipped: true, scanned: 0, problemsUpdated: 0, dailyPromptsUpdated: 0 };
+    return { skipped: true, scanned: 0, problemsUpdated: 0, dailyPromptsUpdated: 0, resultsCaptured: 0, schemaAdded: [] as string[] };
   }
 
+  const schema = await ensureDailyResultCaptureSchema();
   const pages = await queryNotionPages();
   let problemsUpdated = 0;
   let dailyPromptsUpdated = 0;
+  let resultsCaptured = 0;
 
   for (const page of pages) {
     const firestoreId = plainText(page.properties["Firestore ID"]);
@@ -286,16 +349,43 @@ export async function syncNotionStatuses() {
 
     const currentDaily = await getDocument<DailyPromptRecord>("dailyPrompts", firestoreId);
     if (currentDaily) {
+      const selectionJson = plainText(page.properties["선택 결과 JSON"]);
+      const importRequested = checkboxValue(page.properties["결과 반영"]);
       await patchDocument("dailyPrompts", firestoreId, {
         notionPageId: page.id,
         ...(status ? { status } : {}),
+        ...(selectionJson ? { selectionJson } : {}),
         updatedAt: new Date().toISOString(),
       });
+
+      if (importRequested) {
+        if (!selectionJson) throw new Error(`${firestoreId}: 결과 반영이 체크됐지만 선택 결과 JSON이 비어 있습니다.`);
+        const captured = await captureDailySelectionResult(firestoreId, selectionJson);
+        const problemId = captured.problemId ?? "";
+        await notionFetch(`/pages/${page.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            properties: {
+              "Problem ID": { rich_text: richText(problemId) },
+              "결과 반영": { checkbox: false },
+            },
+          }),
+        });
+        resultsCaptured += 1;
+      }
+
       dailyPromptsUpdated += 1;
     }
   }
 
-  return { skipped: false, scanned: pages.length, problemsUpdated, dailyPromptsUpdated };
+  return {
+    skipped: false,
+    scanned: pages.length,
+    problemsUpdated,
+    dailyPromptsUpdated,
+    resultsCaptured,
+    schemaAdded: schema.added,
+  };
 }
 
 export async function pushPendingProblemsToNotion() {
@@ -319,7 +409,8 @@ export async function pushPendingProblemsToNotion() {
 
 export async function pushPendingDailyPromptsToNotion() {
   if (!env.notionApiKey || !env.notionDataSourceId) return { skipped: true, created: 0 };
-  const prompts = await listDocuments<DailyPromptRecord>("dailyPrompts", 90);
+  await ensureDailyResultCaptureSchema();
+  const prompts = await listDocuments<DailyPromptRecord>("dailyPrompts", 120);
   let created = 0;
 
   for (const prompt of prompts) {

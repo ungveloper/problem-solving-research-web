@@ -229,3 +229,43 @@ curl --fail-with-body -sS \\
 
 이 호출은 `daily-YYYY-MM-DD-v2-preview` 문서를 별도로 만들어 기존 오늘 프롬프트를 덮어쓰지 않습니다.
 내일부터 일반 GitHub Actions 실행은 자동으로 V2 프롬프트를 생성합니다.
+
+## Daily Prompt V3 — 선택 결과를 다음 조사에 기억시키기
+
+V3부터 Daily Prompt는 답변 맨 마지막에 `PROBLEM_MEMORY_JSON`을 출력하도록 지시합니다.
+Notion 데이터 소스에는 API가 다음 두 속성을 자동으로 추가합니다.
+
+```text
+선택 결과 JSON  — Rich text
+결과 반영       — Checkbox
+```
+
+ChatGPT Plus 결과를 확인한 뒤 마지막 JSON만 `선택 결과 JSON`에 붙여넣고 `결과 반영`을 체크합니다.
+다음 GitHub Action 실행 시:
+
+```text
+Notion 선택 결과
+→ Firestore dailyPrompts 기록
+→ NEW면 problems에 IN_PROGRESS Problem 생성
+→ CONTINUE면 기존 Problem ID에 연결
+→ Problem ID를 Notion에 기록
+→ 다음 Daily Prompt의 Problem 기억 인덱스에 포함
+```
+
+수동 `Run workflow`는 테스트를 위해 매번 새 `V3 Preview`를 생성합니다.
+정기 스케줄 실행은 기존처럼 하루에 하나의 일반 Daily Prompt만 생성합니다.
+
+`NEW` 결과 JSON 예시:
+
+```json
+{
+  "decision": "NEW",
+  "title": "Google Keep 메모가 PC에 늦게 반영되는 문제",
+  "category": "메모·생산성",
+  "detailArea": "다중 기기 동기화",
+  "concept": "A/B 조건별 동기화 시간 비교",
+  "whyRecommended": "서로 다른 시점의 반복 보고가 있고 일반 기기로 직접 검증 가능",
+  "missionSummary": "편집 화면 유지, 목록 복귀, 수동 동기화 조건에서 PC 반영 시간을 비교",
+  "storyMode": "ONE_SHOT"
+}
+```

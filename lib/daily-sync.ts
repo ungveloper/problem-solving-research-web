@@ -19,7 +19,10 @@ function koreaDateKey(date = new Date()) {
   }).format(date);
 }
 
-export async function runDailySync(trigger: "cron" | "manual" | "webhook" = "manual") {
+export async function runDailySync(
+  trigger: "cron" | "manual" | "webhook" = "manual",
+  options: { previewV3?: boolean } = {},
+) {
   const startedAt = new Date().toISOString();
 
   const profile = await ensureSiteProfile();
@@ -30,13 +33,14 @@ export async function runDailySync(trigger: "cron" | "manual" | "webhook" = "man
     ? { skipped: true, published: 0 }
     : { skipped: false, ...(await reconcilePublishedProblems(wordpress.posts)) };
 
-  const dailyPrompt = await ensureDailyPrompt();
+  const dailyPrompt = await ensureDailyPrompt(undefined, { previewV3: options.previewV3 });
   const problemPush = await pushPendingProblemsToNotion();
   const dailyPromptPush = await pushPendingDailyPromptsToNotion();
 
   const finishedAt = new Date().toISOString();
   const result = {
     trigger,
+    previewV3: Boolean(options.previewV3),
     siteId: env.siteId,
     phase: profile.data.phase,
     startedAt,
@@ -61,6 +65,10 @@ export async function runDailySync(trigger: "cron" | "manual" | "webhook" = "man
     },
   };
 
-  await upsertDocument("dailyRuns", `${koreaDateKey()}-${trigger}`, result);
+  await upsertDocument(
+    "dailyRuns",
+    `${koreaDateKey()}-${trigger}${options.previewV3 ? "-v3-preview" : ""}`,
+    result,
+  );
   return result;
 }

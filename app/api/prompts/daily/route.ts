@@ -12,10 +12,10 @@ export async function POST(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const previewV2 = url.searchParams.get("preview") === "v2";
-    const daily = await ensureDailyPrompt(undefined, { previewV2 });
+    const previewV3 = url.searchParams.get("preview") === "v3";
+    const daily = await ensureDailyPrompt(undefined, { previewV3 });
     const notion = await pushPendingDailyPromptsToNotion();
-    return Response.json({ ok: true, previewV2, daily, notion });
+    return Response.json({ ok: true, previewV3, daily, notion });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "daily prompt generation failed" },

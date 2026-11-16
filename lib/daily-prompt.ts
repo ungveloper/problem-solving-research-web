@@ -8,7 +8,7 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v2";
+const PROMPT_VERSION = "daily-session-v3";
 
 const EXPLORATION_LENSES = [
   "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
@@ -43,7 +43,7 @@ type ArticleRecord = {
 };
 
 type PromptOptions = {
-  previewV2?: boolean;
+  previewV3?: boolean;
 };
 
 function koreaDateKey(date = new Date()) {
@@ -120,15 +120,22 @@ function buildActiveProblemsBlock(problems: Array<{ id: string; data: ProblemRec
 function buildProblemMemoryBlock(problems: Array<{ id: string; data: ProblemRecord }>) {
   const recent = [...problems]
     .sort((a, b) => String(b.data.updatedAt ?? "").localeCompare(String(a.data.updatedAt ?? "")))
-    .slice(0, 30);
+    .slice(0, 80);
   if (recent.length === 0) return "";
 
   return [
-    "[최근 Problem 기억 — 반복 방지용]",
+    "[Problem 기억 인덱스 — 신규 중복 방지와 연속성 판단용]",
     ...recent.map((item, index) =>
-      `${index + 1}. ${item.data.title} / 상태: ${item.data.status} / 카테고리: ${item.data.category ?? "미지정"}`,
+      [
+        `${index + 1}. ID: ${item.id} / ${item.data.title}`,
+        `   상태: ${item.data.status} / 카테고리: ${item.data.category ?? "미지정"} / 세부: ${item.data.detailArea ?? "미지정"}`,
+        item.data.contentConcept ? `   선택 콘셉트: ${item.data.contentConcept}` : "",
+        item.data.missionSummary ? `   최근 Mission: ${item.data.missionSummary}` : "",
+        item.data.sourceDailyPromptDateKey ? `   최초/최근 선택일: ${item.data.sourceDailyPromptDateKey}` : "",
+      ].filter(Boolean).join("\n"),
     ),
-    "제목만 조금 바꾼 같은 문제, 같은 원인·같은 해결을 반복하는 후보는 신규로 취급하지 않는다.",
+    "같은 제품명을 쓰는 것만으로 중복은 아니지만, 같은 사용자 문제·같은 원인 가설·같은 해결 또는 같은 Evidence를 다시 만드는 후보는 NEW로 취급하지 않는다.",
+    "진행 중 Problem과 실질적으로 같은 문제라면 NEW가 아니라 CONTINUE로 판단하고 반드시 해당 ID를 사용한다.",
   ].join("\n");
 }
 
@@ -184,6 +191,20 @@ function continuationInstructions() {
     "이전 결과를 반복하지 말고 오늘 원인을 더 좁히거나 결과를 확인할 구체적인 다음 행동이 있는지 판단한다.",
     "다음 행동의 정보가치가 충분하면 CONTINUE한다.",
     "진행 중 문제를 이어갈 실질적 이유가 없으면 과감히 HOLD하고, 그 다음에는 BROAD_DISCOVERY 절차로 신규 문제를 찾는다.",
+  ].join("\n");
+}
+
+
+function resultMemoryContract() {
+  return [
+    "[운영 DB로 되먹일 PROBLEM_MEMORY_JSON]",
+    "본문 판단을 모두 마친 뒤 맨 마지막에 반드시 아래 스키마의 JSON 코드 블록을 하나만 추가한다.",
+    "이 JSON은 Notion의 '선택 결과 JSON' 속성에 붙여넣어 Firestore Problem 기억으로 반영하는 운영 메타데이터다.",
+    "JSON 전체를 1,400자 이내로 유지하고 설명문·인용·URL·마크다운을 JSON 값 안에 넣지 않는다.",
+    "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary/storyMode를 채운다.",
+    "CONTINUE이면 existingProblemId를 Problem 기억 인덱스의 정확한 ID로 채운다.",
+    "HOLD/NO_GO이면 decision과 짧은 whyRecommended만 남기고 없는 필드는 생략한다.",
+    "예시 키: decision, title, category, detailArea, concept, whyRecommended, missionSummary, storyMode, existingProblemId",
   ].join("\n");
 }
 
@@ -268,25 +289,29 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "H2, FAQ, 표, 체크리스트, 내부 링크, 결론, 이미지 수를 기본 템플릿처럼 강제하지 않는다.",
       "실제로 하지 않은 행동이나 성공하지 않은 해결을 추가하지 않는다.",
     ].join("\n"),
+    resultMemoryContract(),
   ].filter(Boolean);
 
   return { prompt: blocks.join("\n\n"), mode };
 }
 
 export async function ensureDailyPrompt(dateKey = koreaDateKey(), options: PromptOptions = {}) {
-  const id = options.previewV2 ? `daily-${dateKey}-v2-preview` : `daily-${dateKey}`;
-  const existing = await getDocument<DailyPromptRecord>("dailyPrompts", id);
-  if (existing) return { ...existing, created: false };
+  const previewSuffix = options.previewV3 ? `-v3-preview-${Date.now()}` : "";
+  const id = `daily-${dateKey}${previewSuffix}`;
+  if (!options.previewV3) {
+    const existing = await getDocument<DailyPromptRecord>("dailyPrompts", id);
+    if (existing) return { ...existing, created: false };
+  }
 
   const { prompt, mode } = await composeDailySessionPrompt(dateKey);
   const now = new Date().toISOString();
   const record: DailyPromptRecord = {
-    title: `${dateKey} 오늘의 문제 조사 프롬프트${options.previewV2 ? " · V2 Preview" : ""}`,
+    title: `${dateKey} 오늘의 문제 조사 프롬프트${options.previewV3 ? " · V3 Preview" : ""}`,
     dateKey,
     status: "RECOMMENDED",
     mode,
     prompt,
-    promptVersion: `${PROMPT_VERSION}-${mode.toLowerCase()}${options.previewV2 ? "-preview" : ""}`,
+    promptVersion: `${PROMPT_VERSION}-${mode.toLowerCase()}${options.previewV3 ? "-preview" : ""}`,
     createdAt: now,
     updatedAt: now,
   };

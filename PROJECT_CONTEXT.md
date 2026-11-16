@@ -135,3 +135,23 @@ Notion의 `작성 완료`는 최종 발행이 아니다.
 
 주제 다양성을 위해 단일 OS·앱·회사 생태계가 후보를 과도하게 점유하지 않게 한다.
 날짜는 특정 주제를 임의 선택하는 장치가 아니라 최신성 경계와 탐색 관점을 바꾸는 시드로 사용한다.
+
+## Daily Prompt 결과 피드백 루프
+
+Daily Prompt에서 ChatGPT Plus가 고른 최종 Problem은 프롬프트 텍스트로만 끝내지 않는다.
+선택 결과를 Firestore `problems`에 되먹여 다음 조사에서 중복/연속성 판단에 사용한다.
+
+운영 흐름:
+
+1. Daily Prompt는 답변 마지막에 `PROBLEM_MEMORY_JSON`을 출력하도록 요구한다.
+2. 사용자는 Notion Daily Research 행의 `선택 결과 JSON` 속성에 그 JSON만 붙여넣는다.
+3. `결과 반영` 체크박스를 켠다.
+4. 다음 GitHub Action이 Notion을 읽고 결과를 Firestore에 반영한다.
+5. `NEW`는 새 `problems` 문서로 생성하고 상태를 `IN_PROGRESS`로 둔다.
+6. `CONTINUE`는 `existingProblemId`로 기존 Problem에 연결한다.
+7. `HOLD`와 `NO_GO`는 Daily Prompt의 판단 이력만 기록하고 새 Problem을 만들지 않는다.
+8. 반영이 끝나면 Daily Research 행의 `Problem ID`를 채우고 `결과 반영` 체크를 자동으로 해제한다.
+9. 다음 Daily Prompt는 Problem ID, 제목, 상태, 선택 콘셉트, 최근 Mission을 기억 블록으로 읽는다.
+
+같은 Problem을 제목만 바꾸어 NEW로 반복하지 않는다. 진행 중인 같은 문제라면 CONTINUE를 사용한다.
+Notion은 결과 입력 UI이고 Firestore `problems`가 중복 방지의 원본 기억이다.

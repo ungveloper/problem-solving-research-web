@@ -106,3 +106,18 @@ GitHub Actions가 매일 08:00 KST에 실행되면 같은 데이터베이스에 
 
 현재 `PROMPT_VALIDATION` 단계에서는 WordPress 관련 속성은 만들어두기만 하고 비워둡니다.
 프롬프트 품질 검증이 끝난 뒤 WordPress를 연결하면 `WordPress URL`과 `발행 완료` 자동 승격 기능을 사용합니다.
+
+## Daily Prompt 결과 반영 속성 (V3)
+
+`선택 결과 JSON`(Rich text)과 `결과 반영`(Checkbox)은 애플리케이션이 Notion Data Source API로 자동 생성합니다.
+직접 만들 필요는 없습니다.
+
+사용 순서:
+
+1. ChatGPT Plus Daily Prompt 답변 맨 마지막의 `PROBLEM_MEMORY_JSON`만 복사
+2. Daily Research 행의 `선택 결과 JSON`에 붙여넣기
+3. `결과 반영` 체크
+4. GitHub Actions 수동 실행 또는 다음 스케줄 실행
+5. 성공하면 `Problem ID`가 채워지고 `결과 반영` 체크가 자동 해제됨
+
+`CONTINUE` 판단이면 JSON의 `existingProblemId`에 프롬프트의 Problem 기억 인덱스에 나온 정확한 ID를 사용합니다.

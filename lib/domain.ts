@@ -15,6 +15,19 @@ export type ProblemMode = "NEW" | "CONTINUE" | "UPDATE" | "EXPAND";
 export type StoryMode = "ONE_SHOT" | "LIVING_LOG" | "SERIES";
 export type RejectionScope = "EXACT" | "CLUSTER" | "SCOPE";
 export type DailyPromptMode = "DISCOVERY" | "CONTINUATION_FIRST";
+export type DailySelectionDecision = "NEW" | "CONTINUE" | "HOLD" | "NO_GO";
+
+export type DailySelectionPayload = {
+  decision: DailySelectionDecision;
+  title?: string;
+  category?: string;
+  detailArea?: string;
+  concept?: string;
+  whyRecommended?: string;
+  missionSummary?: string;
+  existingProblemId?: string;
+  storyMode?: StoryMode;
+};
 
 export type ProblemRecord = {
   title: string;
@@ -35,6 +48,11 @@ export type ProblemRecord = {
   linkedArticleId?: string;
   rejectionReason?: string;
   rejectionScope?: RejectionScope;
+  contentConcept?: string;
+  missionSummary?: string;
+  sourceDailyPromptId?: string;
+  sourceDailyPromptDateKey?: string;
+  selectedAt?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -48,6 +66,10 @@ export type DailyPromptRecord = {
   promptVersion: string;
   notionPageId?: string;
   notionUrl?: string;
+  selectionJson?: string;
+  selectionDecision?: DailySelectionDecision;
+  linkedProblemId?: string;
+  selectionCapturedAt?: string;
   createdAt: string;
   updatedAt: string;
 };
