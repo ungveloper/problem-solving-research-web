@@ -22,6 +22,7 @@ type DailyRun = {
 };
 
 async function dashboardData() {
+  await connection();
   const connections = getConnectionState();
   if (!connections.firebase.configured) {
     return { connections, articles: [], problems: [], dailyPrompts: [], runs: [] };
@@ -62,7 +63,6 @@ function ConnectionBadge({
 }
 
 async function DashboardContent() {
-  await connection();
   const { connections, articles, problems, dailyPrompts, runs } = await dashboardData();
   const rejected = problems.filter((item) => item.data.status === "REJECTED").length;
   const active = problems.filter((item) => ["IN_PROGRESS", "TESTING", "READY_TO_WRITE"].includes(item.data.status)).length;
