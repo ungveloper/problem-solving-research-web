@@ -8,6 +8,22 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
+const PROMPT_VERSION = "daily-session-v2";
+
+const EXPLORATION_LENSES = [
+  "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
+  "권한·보안·기본값 때문에 생기는 일상적인 마찰",
+  "서로 다른 앱·기기·서비스 사이의 호환성·연동 문제",
+  "파일·사진·문서·데이터를 옮기거나 변환할 때 생기는 문제",
+  "동기화·백업·복원 과정에서 생기는 불일치와 누락",
+  "저장공간·성능·배터리·네트워크처럼 시간이 지나며 누적되는 문제",
+  "브라우저·웹앱에서 특정 조건에만 나타나는 동작 차이",
+  "반복 작업을 번거롭게 만드는 작은 워크플로 마찰",
+  "설치·업그레이드·마이그레이션 전후의 예상 밖 변화",
+  "오프라인·네트워크 전환·다중 기기 환경에서 생기는 문제",
+  "표시·미리보기·입출력·프린트·스캔처럼 눈에 보이는 결과 문제",
+  "검색·정리·이름 변경·복구처럼 정보 관리 과정에서 생기는 문제",
+] as const;
 
 type RejectionRecord = {
   title?: string;
@@ -26,6 +42,10 @@ type ArticleRecord = {
   modifiedAt?: string;
 };
 
+type PromptOptions = {
+  previewV2?: boolean;
+};
+
 function koreaDateKey(date = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",
@@ -35,11 +55,43 @@ function koreaDateKey(date = new Date()) {
   }).format(date);
 }
 
-function buildScopeBlock(profile: SiteProfileRecord) {
+function stableSeed(input: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function dailyExplorationLenses(dateKey: string) {
+  const start = stableSeed(dateKey) % EXPLORATION_LENSES.length;
+  const picks: string[] = [];
+  const step = 5;
+  for (let index = 0; picks.length < 4 && index < EXPLORATION_LENSES.length; index += 1) {
+    const lens = EXPLORATION_LENSES[(start + index * step) % EXPLORATION_LENSES.length];
+    if (!picks.includes(lens)) picks.push(lens);
+  }
+  return picks;
+}
+
+function buildAnchorBlock(profile: SiteProfileRecord) {
   return [
-    "[현재 탐색 범위]",
+    "[참고 앵커 — 제한 목록이 아님]",
     ...profile.activeScopes.map((scope) => `- ${scope}`),
-    "현재 범위와 자연스럽게 연결되는 인접 문제는 후보로 볼 수 있지만, 전혀 다른 분야로 갑자기 확장하지 않는다.",
+    "위 목록은 이 프로젝트가 이미 관심을 가진 출발점일 뿐 화이트리스트가 아니다.",
+    "오늘 웹에서 더 강한 문제 신호가 보이면 목록 밖의 소비자 기술·디지털 생활·생산성 영역도 적극적으로 탐색한다.",
+    "단, 의료·법률·투자·안전처럼 고위험 판단이 필요한 분야와 직접 검증하기 어려운 주제는 제외한다.",
+  ].join("\n");
+}
+
+function buildDailyLensBlock(dateKey: string) {
+  const lenses = dailyExplorationLenses(dateKey);
+  return [
+    "[오늘의 탐색 렌즈 — 주제가 아니라 검색 관점]",
+    ...lenses.map((lens, index) => `${index + 1}. ${lens}`),
+    "이 렌즈들은 매일 탐색 편향을 바꾸기 위한 관점이다. 렌즈에 억지로 주제를 맞추지 말고 실제 웹 신호가 약하면 버린다.",
+    "날짜는 주제를 임의로 정하는 용도가 아니라 최신성 경계와 탐색 렌즈를 바꾸는 시드로만 사용한다.",
   ].join("\n");
 }
 
@@ -61,7 +113,22 @@ function buildActiveProblemsBlock(problems: Array<{ id: string; data: ProblemRec
         item.data.whyRecommended ? `   배경: ${item.data.whyRecommended}` : "",
       ].filter(Boolean).join("\n"),
     ),
-    "진행 중인 문제가 오늘 이어서 확인할 가치가 있으면 새 문제를 억지로 만들지 말고 CONTINUE를 우선한다.",
+    "진행 중인 문제에 실제로 다음 검증 행동이 있으면 CONTINUE를 우선한다. 단지 연재를 유지하기 위해 문제를 늘이지 않는다.",
+  ].join("\n");
+}
+
+function buildProblemMemoryBlock(problems: Array<{ id: string; data: ProblemRecord }>) {
+  const recent = [...problems]
+    .sort((a, b) => String(b.data.updatedAt ?? "").localeCompare(String(a.data.updatedAt ?? "")))
+    .slice(0, 30);
+  if (recent.length === 0) return "";
+
+  return [
+    "[최근 Problem 기억 — 반복 방지용]",
+    ...recent.map((item, index) =>
+      `${index + 1}. ${item.data.title} / 상태: ${item.data.status} / 카테고리: ${item.data.category ?? "미지정"}`,
+    ),
+    "제목만 조금 바꾼 같은 문제, 같은 원인·같은 해결을 반복하는 후보는 신규로 취급하지 않는다.",
   ].join("\n");
 }
 
@@ -69,10 +136,10 @@ function buildRejectionBlock(rejections: Array<{ id: string; data: RejectionReco
   if (rejections.length === 0) return "";
   return [
     "[과거 반려 기억 — 다시 추천하지 않기]",
-    ...rejections.slice(0, 20).map((item, index) =>
+    ...rejections.slice(0, 30).map((item, index) =>
       `${index + 1}. ${item.data.title ?? "제목 없음"} / 범위: ${item.data.scope ?? "CLUSTER"} / 이유: ${item.data.reason ?? "기타"}`,
     ),
-    "EXACT는 같은 문제를, CLUSTER는 같은 문제 의도를, SCOPE는 해당 영역 자체를 다시 추천하지 않는다.",
+    "EXACT는 같은 문제를, CLUSTER는 같은 문제 의도·원인·해결군을, SCOPE는 해당 영역 자체를 다시 추천하지 않는다.",
   ].join("\n");
 }
 
@@ -100,20 +167,34 @@ function buildArticleBlock(articles: Array<{ id: string; data: ArticleRecord }>)
 
 function discoveryInstructions() {
   return [
-    "[오늘의 모드: DISCOVERY]",
-    "최신 웹을 직접 검색해서 사람들이 실제로 반복해서 겪는 작은 문제를 찾는다.",
-    "뉴스 자체를 요약할 주제를 찾지 말고, 시간이 지나도 다시 검색될 가능성이 있는 문제를 찾는다.",
-    "가능하면 서로 다른 출처에서 같은 문제가 반복되는지 확인한다.",
-    "한국 사용자의 실제 표현을 우선하되 해외의 반복 문제도 한국에서 직접 재현 가능한 경우 후보로 포함할 수 있다.",
+    "[오늘의 모드: BROAD_DISCOVERY]",
+    "처음부터 특정 제품이나 파일 형식을 고르지 않는다. 먼저 웹을 넓게 탐색해 '어떤 문제 영역이 오늘 가치가 있는지'부터 찾는다.",
+    "1차 탐색에서는 최소 10개, 가능하면 12~15개의 서로 다른 Problem Territory를 짧게 만든다.",
+    "한 회사·한 OS·한 앱 생태계가 전체 후보의 25%를 넘지 않게 한다. 같은 종류의 PDF/Windows 문제만 여러 개 나열하는 식의 후보 부풀리기를 금지한다.",
+    "후보 구성은 대략 앵커 연관 35%, 인접 영역 35%, 목록 밖 오픈 탐색 30%를 목표로 하되 실제 웹 신호가 우선이다.",
+    "오픈 탐색은 일반 사용자가 직접 재현 가능한 소비자 기술·디지털 생활·생산성 문제에서 찾는다.",
+    "1차 후보를 만든 뒤에만 반복 신호, 직접 검증 가능성, 독자 결과 가치가 높은 5개 이하를 2차 후보로 좁힌다.",
   ].join("\n");
 }
 
 function continuationInstructions() {
   return [
-    "[오늘의 모드: CONTINUATION_FIRST]",
+    "[오늘의 모드: CONTINUATION_FIRST + BROAD_DISCOVERY]",
     "진행 중인 문제를 먼저 검토한다.",
-    "어제/이전 결과를 반복하지 말고 다음으로 원인을 좁힐 행동이 있는지 판단한다.",
-    "진행 중 문제에 오늘 할 가치가 있는 다음 행동이 없을 때만 신규 문제 탐색으로 넘어간다.",
+    "이전 결과를 반복하지 말고 오늘 원인을 더 좁히거나 결과를 확인할 구체적인 다음 행동이 있는지 판단한다.",
+    "다음 행동의 정보가치가 충분하면 CONTINUE한다.",
+    "진행 중 문제를 이어갈 실질적 이유가 없으면 과감히 HOLD하고, 그 다음에는 BROAD_DISCOVERY 절차로 신규 문제를 찾는다.",
+  ].join("\n");
+}
+
+function contentConceptInstructions() {
+  return [
+    "[Problem 선택 뒤 콘텐츠 콘셉트 설계]",
+    "주제를 고른 즉시 글을 쓰지 않는다. 같은 Problem도 어떤 Evidence를 만들지에 따라 글의 가치가 달라진다.",
+    "최종 Problem에 대해 서로 확실히 다른 콘텐츠 콘셉트 2개를 먼저 제안하고, 실제 검증 가치가 더 큰 1개를 선택한다.",
+    "가능한 콘셉트 예: 재현 실험 / 원인 분리 진단 / A-B 조건 비교 / 변경 전후 비교 / 공식 해결 재검증 / 우회 방법 검증 / 실패 기록 / 짧은 Quick Fix.",
+    "콘셉트는 랜덤하게 고르지 말고 '어떤 새로운 Evidence를 직접 만들 수 있는가'를 기준으로 선택한다.",
+    "최종 블로그의 Story Shape는 아직 확정하지 않는다. 실제 Evidence가 나온 뒤 QUICK_FIX, TRIAL_AND_ERROR, COMPARISON, DIAGNOSIS, WORKAROUND, NO_SOLUTION 중에서 정한다.",
   ].join("\n");
 }
 
@@ -138,66 +219,74 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
   const blocks = [
     [
       "[역할]",
-      "당신은 '문제 해결소'의 오늘 문제 조사자이자 미션 설계자다.",
-      "이 대화에서는 먼저 최신 웹을 조사하고 오늘 직접 확인할 문제를 고른다. 실제 Evidence가 생기기 전에는 최종 1인칭 경험담을 쓰지 않는다.",
+      "당신은 '문제 해결소'의 오늘 문제 리서처이자 실험 설계자다.",
+      "목표는 미리 정해진 카테고리에서 소재 하나를 뽑는 것이 아니라, 현재 웹에서 실제 문제 신호를 넓게 발견하고 그중 직접 검증할 가치가 가장 큰 문제를 고르는 것이다.",
+      "실제 Evidence가 생기기 전에는 최종 1인칭 경험담을 쓰지 않는다.",
       `기준 날짜: ${dateKey} (Asia/Seoul)`,
     ].join("\n"),
     buildPrincipleBlock(profileDoc.data),
-    buildScopeBlock(profileDoc.data),
+    buildAnchorBlock(profileDoc.data),
+    buildDailyLensBlock(dateKey),
     mode === "CONTINUATION_FIRST" ? continuationInstructions() : discoveryInstructions(),
     buildActiveProblemsBlock(activeProblems),
+    buildProblemMemoryBlock(problemDocs),
     buildRejectionBlock(rejections),
     buildArticleBlock(articles),
     [
-      "[웹 조사 규칙]",
-      "- 반드시 현재 웹을 검색해서 실제 출처를 확인한다. 검색하지 않았다면 검색한 것처럼 말하지 않는다.",
-      "- 커뮤니티/질문/이슈에서 반복되는 문제 신호와 공식 문서의 현재 해결 정보를 구분한다.",
-      "- 단순 정의, 뉴스 요약, 제품 추천, 구매 가이드보다 직접 재현 가능한 문제 해결을 우선한다.",
-      "- 의료·법률·투자처럼 높은 위험의 주제는 초기 범위에서 제외한다.",
-      "- 검색 결과가 이미 충분히 잘 해결하고 있거나 내가 직접 검증할 수 없으면 낮게 평가한다.",
+      "[웹 조사 순서]",
+      "1. 먼저 여러 영역을 얕고 넓게 검색해 Problem Territory를 만든다. 처음부터 해결법 검색으로 좁히지 않는다.",
+      "2. 커뮤니티·질문·이슈의 반복 신호와 공식 문서·릴리스 노트의 현재 동작을 분리해 확인한다.",
+      "3. 서로 다른 출처에서 같은 불편이 반복되는지 확인하고, 단일 바이럴 글이나 뉴스 한 건만으로 후보를 올리지 않는다.",
+      "4. 2차 후보만 더 깊게 검색한다. 이미 검색 결과 상단에 충분한 해결 글이 많아 새 Evidence 가치가 낮으면 감점한다.",
+      "5. 내가 직접 재현할 수 없는 장비·계정·유료 서비스가 필수라면 HOLD 또는 제외한다.",
+      "6. 의료·법률·투자·안전처럼 고위험 판단이 필요한 영역은 제외한다.",
     ].join("\n"),
     [
-      "[후보 판단 기준]",
-      "반복성 / Evergreen / 직접 검증 가능성 / 독자 결과 가치 / 독창적 Evidence 생성 가능성 / 기존 글과의 비중복성을 함께 본다.",
-      "점수를 억지로 높이지 않는다. 오늘 발행 가치가 있는 신규 Problem이 0개여도 정상이다.",
+      "[후보 평가 기준]",
+      "각 2차 후보를 반복성 / Evergreen / 직접 검증 가능성 / 독자 결과 가치 / 독창적 Evidence 가능성 / 검색 결과 포화도 / 필요한 장비·계정 부담으로 평가한다.",
+      "정확한 숫자 점수보다 비교 이유가 중요하다. 약한 후보를 억지로 80점 이상으로 만들지 않는다.",
+      "오늘 발행 가치가 있는 신규 Problem이 0개여도 정상이다.",
     ].join("\n"),
+    contentConceptInstructions(),
     [
       "[출력 형식]",
       "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO 중 하나",
-      "2. 조사 근거: 실제 확인한 웹 출처와 반복 신호를 짧게 요약",
-      "3. 후보가 있다면 최대 3개까지만 제시하고 각각 왜 직접 해볼 가치가 있는지 설명",
-      "4. 최종 선택은 1개 이하. 가치가 부족하면 '오늘은 진행할 신규 문제 없음'이라고 명시",
-      "5. 선택했다면 오늘 직접 할 Mission을 구체적인 행동 순서로 작성",
-      "6. 기록해야 할 Evidence를 최소한으로 제시 (성공/실패, 환경, 오류 문구, 전후 차이 등)",
-      "7. 하루에 끝나지 않을 경우 N일차의 미래 결과는 쓰지 말고 다음 행동 계획만 제시",
-      "8. 여기서 멈춘다. 사용자가 실제 결과를 알려주기 전에는 최종 블로그 글을 작성하지 않는다.",
+      "2. 오늘의 탐색 요약: 어떤 영역을 넓게 훑었는지 3~5줄",
+      "3. Problem Territory Map: 서로 겹치지 않는 후보 영역 10~15개를 한 줄씩. 이 단계에서는 긴 설명 금지",
+      "4. 검증 후보: 실제 웹 근거를 확인한 상위 5개 이하. 각 후보에 반복 신호 / 직접 검증 방법 / 포화도 / 제외 위험을 짧게 표시",
+      "5. 최종 선택: 1개 이하. 가치가 부족하면 '오늘은 진행할 신규 문제 없음'이라고 명시",
+      "6. 콘텐츠 콘셉트: 최종 Problem에 적용 가능한 서로 다른 콘셉트 2개 → 그중 1개 선택 → 선택 이유",
+      "7. 오늘의 Mission: 선택한 콘셉트에 맞춰 직접 할 행동을 최소 단계로 설계",
+      "8. 최소 Evidence: 성공/실패, 환경, 오류 문구, 전후·A-B 차이 등 실제로 남겨야 할 증거",
+      "9. 하루에 끝나지 않으면 미래 결과를 쓰지 말고 다음 행동 계획만 제시",
+      "10. 여기서 멈춘다. 사용자가 실제 결과를 알려주기 전에는 최종 블로그 글을 작성하지 않는다.",
     ].join("\n"),
     [
-      "[사용자가 Evidence를 준 이후의 규칙]",
-      "사용자가 실제 테스트 결과를 보내면 그 Evidence와 확인 가능한 공식 자료를 분리해 판단한다.",
-      "그때 최종 글이 필요하다고 요청받으면 사건 흐름에 맞는 자연스러운 개인 블로그 글로 작성한다.",
-      "H2는 실제 내용 전환에 필요할 때만 사용하고, FAQ/표/체크리스트/내부 링크/결론을 기본 형식으로 강제하지 않는다.",
-      "실제로 하지 않은 행동은 절대 추가하지 않는다.",
+      "[Evidence 이후 글쓰기 규칙]",
+      "사용자가 실제 테스트 결과를 보내면 OBSERVED / OFFICIAL / INFERRED / UNVERIFIED를 분리해 판단한다.",
+      "그때 발행 가치가 충분하고 사용자가 글 작성을 요청하면, 선택했던 콘텐츠 콘셉트와 실제 사건 흐름을 바탕으로 자연스러운 개인 블로그 글을 작성한다.",
+      "H2, FAQ, 표, 체크리스트, 내부 링크, 결론, 이미지 수를 기본 템플릿처럼 강제하지 않는다.",
+      "실제로 하지 않은 행동이나 성공하지 않은 해결을 추가하지 않는다.",
     ].join("\n"),
   ].filter(Boolean);
 
   return { prompt: blocks.join("\n\n"), mode };
 }
 
-export async function ensureDailyPrompt(dateKey = koreaDateKey()) {
-  const id = `daily-${dateKey}`;
+export async function ensureDailyPrompt(dateKey = koreaDateKey(), options: PromptOptions = {}) {
+  const id = options.previewV2 ? `daily-${dateKey}-v2-preview` : `daily-${dateKey}`;
   const existing = await getDocument<DailyPromptRecord>("dailyPrompts", id);
   if (existing) return { ...existing, created: false };
 
   const { prompt, mode } = await composeDailySessionPrompt(dateKey);
   const now = new Date().toISOString();
   const record: DailyPromptRecord = {
-    title: `${dateKey} 오늘의 문제 조사 프롬프트`,
+    title: `${dateKey} 오늘의 문제 조사 프롬프트${options.previewV2 ? " · V2 Preview" : ""}`,
     dateKey,
     status: "RECOMMENDED",
     mode,
     prompt,
-    promptVersion: `daily-session-v1-${mode.toLowerCase()}`,
+    promptVersion: `${PROMPT_VERSION}-${mode.toLowerCase()}${options.previewV2 ? "-preview" : ""}`,
     createdAt: now,
     updatedAt: now,
   };

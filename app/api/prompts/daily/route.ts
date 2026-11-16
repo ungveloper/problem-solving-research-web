@@ -11,9 +11,11 @@ export async function POST(request: Request) {
   if (!authorized(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
 
   try {
-    const daily = await ensureDailyPrompt();
+    const url = new URL(request.url);
+    const previewV2 = url.searchParams.get("preview") === "v2";
+    const daily = await ensureDailyPrompt(undefined, { previewV2 });
     const notion = await pushPendingDailyPromptsToNotion();
-    return Response.json({ ok: true, daily, notion });
+    return Response.json({ ok: true, previewV2, daily, notion });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "daily prompt generation failed" },

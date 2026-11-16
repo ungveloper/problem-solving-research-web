@@ -210,3 +210,22 @@ Prompt Validation 단계에서 실제 ChatGPT Plus 결과를 보면서 다음을
 10. Search Console
 
 자동 WordPress 발행은 기본 목표가 아닙니다.
+
+## Daily Prompt V2 탐색 방식
+
+V2부터 `Mac / Windows / PDF ...` 목록은 고정 허용 범위가 아니라 참고 앵커로만 사용합니다.
+ChatGPT Plus는 먼저 여러 영역에서 10~15개의 Problem Territory를 넓게 탐색하고, 실제 웹 반복 신호를 확인한 5개 이하를 비교한 뒤 최종 Problem을 최대 1개 선택합니다.
+
+최종 Problem을 고른 뒤에도 바로 글을 쓰지 않습니다. 서로 다른 콘텐츠 콘셉트 2개를 제안하고 직접 만들 수 있는 Evidence가 더 강한 콘셉트를 고른 뒤 Mission을 설계합니다.
+
+오늘 이미 V1 프롬프트를 생성한 상태에서 V2를 별도로 비교하려면:
+
+```bash
+curl --fail-with-body -sS \\
+  -X POST \\
+  -H "Authorization: Bearer $ADMIN_SECRET" \\
+  "${APP_BASE_URL%/}/api/prompts/daily?preview=v2"
+```
+
+이 호출은 `daily-YYYY-MM-DD-v2-preview` 문서를 별도로 만들어 기존 오늘 프롬프트를 덮어쓰지 않습니다.
+내일부터 일반 GitHub Actions 실행은 자동으로 V2 프롬프트를 생성합니다.
