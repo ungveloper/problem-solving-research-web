@@ -156,7 +156,7 @@ curl -X POST \
 ChatGPT Plus에 붙여넣으면 최신 웹을 조사해서 최대 3개 후보를 보고, 최종 선택은 1개 이하로 제한합니다.
 가치가 부족하면 `오늘은 진행할 신규 문제 없음`을 허용합니다.
 
-최종 Evidence가 오기 전에는 블로그 글을 쓰지 않고 Mission에서 멈춥니다.
+V4부터는 Evidence 전에도 웹 근거와 실험 계획을 기반으로 `검증 전 블로그 초안`까지 만듭니다. 다만 직접 수행 결과는 지어내지 않고, 실제 Evidence가 들어오면 초안을 최종 글로 갱신합니다.
 
 ## 7. Notion 상태
 
@@ -269,3 +269,35 @@ Notion 선택 결과
   "storyMode": "ONE_SHOT"
 }
 ```
+
+
+## 로컬 즉시 테스트
+
+Vercel 재배포를 기다리지 않고 현재 로컬 코드로 전체 일일 흐름을 바로 검증할 수 있습니다.
+
+```bash
+cd /Users/ungveloper/Desktop/UNG/problem-solving-research-web
+npm run test:local
+```
+
+`.env.local`의 `CRON_SECRET`을 자동으로 읽으며 별도로 비밀값을 붙여넣지 않습니다.
+임시 로컬 Next 서버를 시작한 뒤 `/api/cron/daily?preview=v4`를 호출하고 자동 종료합니다.
+이 테스트는 실제 Firestore/Notion을 사용하므로 V4 Preview와 스키마 정리가 실제 DB에 반영됩니다.
+
+## Notion 최소 속성
+
+V4부터 현재 단계에서 필요한 속성만 유지합니다.
+
+```text
+이름
+상태
+유형
+생성일
+Firestore ID
+선택 결과 JSON
+결과 반영
+반려 이유
+반려 범위
+```
+
+기존의 카테고리, 세부 영역, 추천점수, Problem ID, Mission ID, 연재 유형, 현재 일차, 관련 기존 글, WordPress URL, Prompt Version 및 상태 변경용 버튼 열은 다음 동기화 시 제거됩니다. 상세 메타데이터는 Firestore에 계속 보존합니다.

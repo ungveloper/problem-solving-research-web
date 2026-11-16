@@ -13,8 +13,8 @@ export async function POST(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const previewV3 = url.searchParams.get("preview") === "v3";
-    return Response.json({ ok: true, result: await runDailySync("cron", { previewV3 }) });
+    const previewV4 = url.searchParams.get("preview") === "v3";
+    return Response.json({ ok: true, result: await runDailySync("cron", { previewV4 }) });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "daily sync failed" },

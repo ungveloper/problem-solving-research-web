@@ -23,7 +23,7 @@ jobs:
 
           endpoint="${APP_BASE_URL%/}/api/cron/daily"
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            endpoint="${endpoint}?preview=v3"
+            endpoint="${endpoint}?preview=v4"
           fi
 
           curl --fail-with-body --retry 3 --retry-delay 5 \

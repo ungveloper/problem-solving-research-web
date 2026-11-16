@@ -34,24 +34,63 @@ async function notionFetch(path: string, init: RequestInit = {}) {
   return response;
 }
 
+const MINIMAL_PROPERTIES: Record<string, unknown> = {
+  "유형": { select: {} },
+  "생성일": { date: {} },
+  "Firestore ID": { rich_text: {} },
+  "선택 결과 JSON": { rich_text: {} },
+  "결과 반영": { checkbox: {} },
+  "반려 이유": { select: {} },
+  "반려 범위": { select: {} },
+};
+
+const LEGACY_PROPERTIES = [
+  "카테고리",
+  "세부 영역",
+  "추천점수",
+  "Problem ID",
+  "Mission ID",
+  "연재 유형",
+  "현재 일차",
+  "관련 기존 글",
+  "WordPress URL",
+  "Prompt Version",
+  "진행하기",
+  "보류",
+  "반려",
+  "작성 완료",
+] as const;
+
 async function ensureDailyResultCaptureSchema() {
-  if (!env.notionDataSourceId) return { added: [] as string[] };
+  if (!env.notionDataSourceId) return { added: [] as string[], removed: [] as string[] };
   const response = await notionFetch(`/data_sources/${env.notionDataSourceId}`);
   const dataSource = (await response.json()) as { properties?: Record<string, unknown> };
   const properties = dataSource.properties ?? {};
-  const additions: Record<string, unknown> = {};
+  const updates: Record<string, unknown> = {};
+  const added: string[] = [];
+  const removed: string[] = [];
 
-  if (!("선택 결과 JSON" in properties)) additions["선택 결과 JSON"] = { rich_text: {} };
-  if (!("결과 반영" in properties)) additions["결과 반영"] = { checkbox: {} };
+  for (const [name, schema] of Object.entries(MINIMAL_PROPERTIES)) {
+    if (!(name in properties)) {
+      updates[name] = schema;
+      added.push(name);
+    }
+  }
 
-  const added = Object.keys(additions);
-  if (added.length > 0) {
+  for (const name of LEGACY_PROPERTIES) {
+    if (name in properties) {
+      updates[name] = null;
+      removed.push(name);
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
     await notionFetch(`/data_sources/${env.notionDataSourceId}`, {
       method: "PATCH",
-      body: JSON.stringify({ properties: additions }),
+      body: JSON.stringify({ properties: updates }),
     });
   }
-  return { added };
+  return { added, removed };
 }
 
 function richText(content?: string) {
@@ -87,21 +126,11 @@ function baseProblemProperties(id: string, problem: ProblemRecord) {
   return {
     [env.notionTitleProperty]: { title: richText(problem.title) },
     [env.notionStatusProperty]: { status: { name: notionStatusByInternal[problem.status] } },
-    "카테고리": problem.category ? { select: { name: problem.category } } : { select: null },
-    "세부 영역": problem.detailArea ? { select: { name: problem.detailArea } } : { select: null },
     "유형": { select: { name: problem.mode } },
-    "추천점수": { number: problem.score ?? null },
-    "Problem ID": { rich_text: richText(id) },
-    "Mission ID": { rich_text: [] },
-    "연재 유형": problem.storyMode ? { select: { name: problem.storyMode } } : { select: null },
-    "현재 일차": { number: problem.currentDay ?? null },
-    "관련 기존 글": { rich_text: [] },
-    "WordPress URL": { url: problem.wordpressUrl ?? null },
-    "반려 이유": problem.rejectionReason ? { select: { name: problem.rejectionReason } } : { select: null },
-    "반려 범위": problem.rejectionScope ? { select: { name: problem.rejectionScope } } : { select: null },
     "생성일": { date: { start: problem.createdAt } },
     "Firestore ID": { rich_text: richText(id) },
-    "Prompt Version": { rich_text: richText(problem.promptVersion ?? "v1") },
+    "반려 이유": problem.rejectionReason ? { select: { name: problem.rejectionReason } } : { select: null },
+    "반려 범위": problem.rejectionScope ? { select: { name: problem.rejectionScope } } : { select: null },
   };
 }
 
@@ -109,23 +138,11 @@ function baseDailyPromptProperties(id: string, daily: DailyPromptRecord) {
   return {
     [env.notionTitleProperty]: { title: richText(daily.title) },
     [env.notionStatusProperty]: { status: { name: notionStatusByInternal[daily.status] } },
-    "카테고리": { select: null },
-    "세부 영역": { select: null },
     "유형": { select: { name: "DAILY_RESEARCH" } },
-    "추천점수": { number: null },
-    "Problem ID": { rich_text: richText(daily.linkedProblemId ?? "") },
-    "Mission ID": { rich_text: [] },
-    "선택 결과 JSON": { rich_text: richText(daily.selectionJson ?? "") },
-    "결과 반영": { checkbox: false },
-    "연재 유형": { select: null },
-    "현재 일차": { number: null },
-    "관련 기존 글": { rich_text: richText(daily.mode === "CONTINUATION_FIRST" ? "진행 중 문제 우선" : "신규 문제 탐색") },
-    "WordPress URL": { url: null },
-    "반려 이유": { select: null },
-    "반려 범위": { select: null },
     "생성일": { date: { start: daily.createdAt } },
     "Firestore ID": { rich_text: richText(id) },
-    "Prompt Version": { rich_text: richText(daily.promptVersion) },
+    "선택 결과 JSON": { rich_text: richText(daily.selectionJson ?? "") },
+    "결과 반영": { checkbox: false },
   };
 }
 
@@ -215,7 +232,7 @@ export async function createDailyPromptNotionPage(id: string, daily: DailyPrompt
       type: "paragraph",
       paragraph: {
         rich_text: richText(
-          "ChatGPT 답변 맨 마지막의 PROBLEM_MEMORY_JSON만 '선택 결과 JSON' 속성에 붙여넣고 '결과 반영'을 체크하세요. 다음 GitHub Action이 Firestore Problem으로 저장하거나 기존 Problem에 연결한 뒤 Problem ID를 기록합니다.",
+          "ChatGPT 답변 맨 마지막의 PROBLEM_MEMORY_JSON만 '선택 결과 JSON'에 붙여넣고 '결과 반영'을 체크하세요. 다음 동기화가 Firestore Problem으로 저장하거나 기존 Problem에 연결합니다.",
         ),
       },
     },
@@ -238,8 +255,8 @@ export async function updateProblemNotionPage(
   fields: { status?: ProblemStatus; wordpressUrl?: string; rejectionReason?: string; rejectionScope?: RejectionScope },
 ) {
   const properties: Record<string, unknown> = {};
+  void fields.wordpressUrl; // WordPress URL은 현재 Notion 최소 스키마에 노출하지 않고 Firestore에서만 유지합니다.
   if (fields.status) properties[env.notionStatusProperty] = { status: { name: notionStatusByInternal[fields.status] } };
-  if (fields.wordpressUrl !== undefined) properties["WordPress URL"] = { url: fields.wordpressUrl || null };
   if (fields.rejectionReason !== undefined) {
     properties["반려 이유"] = fields.rejectionReason ? { select: { name: fields.rejectionReason } } : { select: null };
   }
@@ -297,7 +314,7 @@ async function queryNotionPages() {
 
 export async function syncNotionStatuses() {
   if (!env.notionApiKey || !env.notionDataSourceId) {
-    return { skipped: true, scanned: 0, problemsUpdated: 0, dailyPromptsUpdated: 0, resultsCaptured: 0, schemaAdded: [] as string[] };
+    return { skipped: true, scanned: 0, problemsUpdated: 0, dailyPromptsUpdated: 0, resultsCaptured: 0, schemaAdded: [] as string[], schemaRemoved: [] as string[] };
   }
 
   const schema = await ensureDailyResultCaptureSchema();
@@ -317,13 +334,11 @@ export async function syncNotionStatuses() {
     if (currentProblem) {
       const rejectionReason = plainText(page.properties["반려 이유"]);
       const rejectionScope = plainText(page.properties["반려 범위"]) as RejectionScope | "";
-      const wordpressUrl = plainText(page.properties["WordPress URL"]);
 
       const changes: Record<string, unknown> = { notionPageId: page.id, updatedAt: new Date().toISOString() };
       if (status) changes.status = status;
       if (rejectionReason) changes.rejectionReason = rejectionReason;
       if (rejectionScope) changes.rejectionScope = rejectionScope;
-      if (wordpressUrl) changes.wordpressUrl = wordpressUrl;
 
       await patchDocument("problems", firestoreId, changes);
 
@@ -366,7 +381,6 @@ export async function syncNotionStatuses() {
           method: "PATCH",
           body: JSON.stringify({
             properties: {
-              "Problem ID": { rich_text: richText(problemId) },
               "결과 반영": { checkbox: false },
             },
           }),
@@ -385,6 +399,7 @@ export async function syncNotionStatuses() {
     dailyPromptsUpdated,
     resultsCaptured,
     schemaAdded: schema.added,
+    schemaRemoved: schema.removed,
   };
 }
 

@@ -8,7 +8,7 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v3";
+const PROMPT_VERSION = "daily-session-v4";
 
 const EXPLORATION_LENSES = [
   "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
@@ -43,7 +43,7 @@ type ArticleRecord = {
 };
 
 type PromptOptions = {
-  previewV3?: boolean;
+  previewV4?: boolean;
 };
 
 function koreaDateKey(date = new Date()) {
@@ -198,10 +198,11 @@ function continuationInstructions() {
 function resultMemoryContract() {
   return [
     "[운영 DB로 되먹일 PROBLEM_MEMORY_JSON]",
-    "본문 판단을 모두 마친 뒤 맨 마지막에 반드시 아래 스키마의 JSON 코드 블록을 하나만 추가한다.",
+    "본문 판단과 검증 전 블로그 초안을 모두 작성한 뒤 맨 마지막에 반드시 JSON 코드 블록을 하나만 추가한다.",
     "이 JSON은 Notion의 '선택 결과 JSON' 속성에 붙여넣어 Firestore Problem 기억으로 반영하는 운영 메타데이터다.",
     "JSON 전체를 1,400자 이내로 유지하고 설명문·인용·URL·마크다운을 JSON 값 안에 넣지 않는다.",
-    "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary/storyMode를 채운다.",
+    "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary를 채운다.",
+    "storyMode를 쓸 경우 반드시 ONE_SHOT / LIVING_LOG / SERIES 중 하나만 사용한다. Evidence 전이라는 뜻으로 PENDING_EVIDENCE 같은 별도 값을 만들지 않는다. 아직 판단하기 어렵다면 storyMode 필드를 생략한다.",
     "CONTINUE이면 existingProblemId를 Problem 기억 인덱스의 정확한 ID로 채운다.",
     "HOLD/NO_GO이면 decision과 짧은 whyRecommended만 남기고 없는 필드는 생략한다.",
     "예시 키: decision, title, category, detailArea, concept, whyRecommended, missionSummary, storyMode, existingProblemId",
@@ -216,6 +217,20 @@ function contentConceptInstructions() {
     "가능한 콘셉트 예: 재현 실험 / 원인 분리 진단 / A-B 조건 비교 / 변경 전후 비교 / 공식 해결 재검증 / 우회 방법 검증 / 실패 기록 / 짧은 Quick Fix.",
     "콘셉트는 랜덤하게 고르지 말고 '어떤 새로운 Evidence를 직접 만들 수 있는가'를 기준으로 선택한다.",
     "최종 블로그의 Story Shape는 아직 확정하지 않는다. 실제 Evidence가 나온 뒤 QUICK_FIX, TRIAL_AND_ERROR, COMPARISON, DIAGNOSIS, WORKAROUND, NO_SOLUTION 중에서 정한다.",
+  ].join("\n");
+}
+
+function preEvidenceDraftInstructions() {
+  return [
+    "[검증 전 블로그 초안 규칙]",
+    "최종 판단이 NEW 또는 CONTINUE이고 실제로 다룰 Problem을 선택했다면 Mission과 Evidence 설계 뒤에 반드시 '검증 전 블로그 초안'을 작성한다.",
+    "초안은 단순 개요나 목차가 아니라 실제 블로그 본문 형태로 충분히 작성한다. 다만 아직 발행 가능한 최종본이 아니라는 점을 제목 바로 아래에 짧게 표시한다.",
+    "웹 조사와 공식 문서로 확인한 사실은 출처 성격을 구분해 서술할 수 있다. 사용자가 직접 해보지 않은 결과를 '해봤다', '해결됐다', '확인했다'처럼 1인칭 경험으로 만들지 않는다.",
+    "실제 실험 결과가 필요한 부분은 '[실험 후 실제 결과로 교체]'처럼 짧고 명확한 자리표시자로 남긴다. 초안 전체를 빈칸 투성이로 만들지는 않는다.",
+    "초안에는 자연스러운 제목, 문제 상황, 왜 확인할 가치가 있는지, 현재 확인 가능한 사실, 선택한 검증 관점, 독자가 이해해야 할 핵심 맥락을 사건 흐름에 맞게 담는다.",
+    "실험 방법을 글의 대부분으로 만들지 말고, 실제 Evidence가 들어오면 어떤 문단이 최종 경험 서술로 바뀔지 알 수 있는 수준으로만 포함한다.",
+    "Evidence가 들어오면 이 초안을 버리고 처음부터 새로 만드는 것이 아니라 OBSERVED 결과로 미확정 부분을 교체하고 필요한 만큼 구조를 다시 다듬어 최종 글로 확정한다.",
+    "SEO를 위해 글자 수, H2 개수, FAQ, 표, 체크리스트, 결론 문구를 강제하지 않는다.",
   ].join("\n");
 }
 
@@ -242,7 +257,7 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "[역할]",
       "당신은 '문제 해결소'의 오늘 문제 리서처이자 실험 설계자다.",
       "목표는 미리 정해진 카테고리에서 소재 하나를 뽑는 것이 아니라, 현재 웹에서 실제 문제 신호를 넓게 발견하고 그중 직접 검증할 가치가 가장 큰 문제를 고르는 것이다.",
-      "실제 Evidence가 생기기 전에는 최종 1인칭 경험담을 쓰지 않는다.",
+      "실제 Evidence가 생기기 전에는 직접 수행 결과를 확정한 최종 1인칭 경험담을 쓰지 않는다. 대신 조사 근거와 실험 계획을 바탕으로 발행 보류 상태의 검증 전 블로그 초안까지 작성한다.",
       `기준 날짜: ${dateKey} (Asia/Seoul)`,
     ].join("\n"),
     buildPrincipleBlock(profileDoc.data),
@@ -269,6 +284,7 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "오늘 발행 가치가 있는 신규 Problem이 0개여도 정상이다.",
     ].join("\n"),
     contentConceptInstructions(),
+    preEvidenceDraftInstructions(),
     [
       "[출력 형식]",
       "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO 중 하나",
@@ -280,12 +296,13 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "7. 오늘의 Mission: 선택한 콘셉트에 맞춰 직접 할 행동을 최소 단계로 설계",
       "8. 최소 Evidence: 성공/실패, 환경, 오류 문구, 전후·A-B 차이 등 실제로 남겨야 할 증거",
       "9. 하루에 끝나지 않으면 미래 결과를 쓰지 말고 다음 행동 계획만 제시",
-      "10. 여기서 멈춘다. 사용자가 실제 결과를 알려주기 전에는 최종 블로그 글을 작성하지 않는다.",
+      "10. 검증 전 블로그 초안: NEW/CONTINUE로 최종 Problem이 정해졌다면 실제 본문 형태의 초안을 작성한다. 직접 실행 결과는 지어내지 않고 미확정 부분만 명시한다.",
+      "11. PROBLEM_MEMORY_JSON: 답변 맨 마지막에 운영 DB 반영용 JSON 코드 블록을 출력한다.",
     ].join("\n"),
     [
       "[Evidence 이후 글쓰기 규칙]",
       "사용자가 실제 테스트 결과를 보내면 OBSERVED / OFFICIAL / INFERRED / UNVERIFIED를 분리해 판단한다.",
-      "그때 발행 가치가 충분하고 사용자가 글 작성을 요청하면, 선택했던 콘텐츠 콘셉트와 실제 사건 흐름을 바탕으로 자연스러운 개인 블로그 글을 작성한다.",
+      "Evidence가 들어오면 검증 전 블로그 초안의 미확정 부분을 OBSERVED 결과로 교체하고, 선택했던 콘텐츠 콘셉트와 실제 사건 흐름에 맞게 구조를 다시 다듬어 최종 개인 블로그 글로 확정한다.",
       "H2, FAQ, 표, 체크리스트, 내부 링크, 결론, 이미지 수를 기본 템플릿처럼 강제하지 않는다.",
       "실제로 하지 않은 행동이나 성공하지 않은 해결을 추가하지 않는다.",
     ].join("\n"),
@@ -296,9 +313,9 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
 }
 
 export async function ensureDailyPrompt(dateKey = koreaDateKey(), options: PromptOptions = {}) {
-  const previewSuffix = options.previewV3 ? `-v3-preview-${Date.now()}` : "";
+  const previewSuffix = options.previewV4 ? `-v4-preview-${Date.now()}` : "";
   const id = `daily-${dateKey}${previewSuffix}`;
-  if (!options.previewV3) {
+  if (!options.previewV4) {
     const existing = await getDocument<DailyPromptRecord>("dailyPrompts", id);
     if (existing) return { ...existing, created: false };
   }
@@ -306,12 +323,12 @@ export async function ensureDailyPrompt(dateKey = koreaDateKey(), options: Promp
   const { prompt, mode } = await composeDailySessionPrompt(dateKey);
   const now = new Date().toISOString();
   const record: DailyPromptRecord = {
-    title: `${dateKey} 오늘의 문제 조사 프롬프트${options.previewV3 ? " · V3 Preview" : ""}`,
+    title: `${dateKey} 오늘의 문제 조사 프롬프트${options.previewV4 ? " · V4 Preview" : ""}`,
     dateKey,
     status: "RECOMMENDED",
     mode,
     prompt,
-    promptVersion: `${PROMPT_VERSION}-${mode.toLowerCase()}${options.previewV3 ? "-preview" : ""}`,
+    promptVersion: `${PROMPT_VERSION}-${mode.toLowerCase()}${options.previewV4 ? "-preview" : ""}`,
     createdAt: now,
     updatedAt: now,
   };

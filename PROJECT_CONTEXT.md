@@ -52,8 +52,7 @@ Prompt Composer는 현재 상태에 따라 모듈을 선택한다.
 - INFERRED: 관찰/자료로부터 추론한 것. 불확실성을 표시
 - UNVERIFIED: 발행 가능한 경험 서술로 사용 금지
 
-Evidence가 없는 상태에서는 최종 1인칭 경험담을 완성하지 않는다.
-먼저 미션만 제시하고 사용자 결과를 기다린다.
+Evidence가 없는 상태에서는 직접 수행 결과를 확정한 최종 1인칭 경험담을 완성하지 않는다. 대신 웹 근거와 실험 계획만으로 `검증 전 블로그 초안`을 만들 수 있다. 이 초안은 발행 보류 상태이며 직접 경험이 필요한 부분은 미확정으로 표시한다. 실제 Evidence가 들어오면 해당 부분을 OBSERVED 결과로 교체하고 구조를 다시 다듬어 최종 글로 확정한다.
 
 ## Natural Blog 원칙
 
@@ -155,3 +154,41 @@ Daily Prompt에서 ChatGPT Plus가 고른 최종 Problem은 프롬프트 텍스�
 
 같은 Problem을 제목만 바꾸어 NEW로 반복하지 않는다. 진행 중인 같은 문제라면 CONTINUE를 사용한다.
 Notion은 결과 입력 UI이고 Firestore `problems`가 중복 방지의 원본 기억이다.
+
+
+## Daily Prompt V4 — 조사와 글 초안을 한 번에 만들기
+
+Daily Prompt는 Problem 선택과 Mission 설계만 하고 끝내지 않는다.
+`NEW` 또는 `CONTINUE`로 실제 Problem이 선택되면 같은 응답에서 **검증 전 블로그 초안**까지 만든다.
+
+검증 전 초안은 실제 블로그 본문 형태로 충분히 작성하되 다음을 지킨다.
+
+- 웹 조사/공식 문서로 확인 가능한 사실은 서술 가능
+- 직접 하지 않은 행동과 결과를 1인칭 경험으로 만들지 않음
+- 실제 결과가 필요한 부분만 명시적으로 미확정 처리
+- Evidence가 들어오면 초안의 미확정 부분을 OBSERVED 결과로 교체하고 최종본으로 재구성
+- 초안은 발행 보류이며 WordPress 자동 발행 대상이 아님
+
+## Notion 최소 운영 스키마
+
+현재 단계에서는 Notion을 복잡한 CMS처럼 사용하지 않는다.
+필수 속성만 유지한다.
+
+- 이름
+- 상태
+- 유형
+- 생성일
+- Firestore ID
+- 선택 결과 JSON
+- 결과 반영
+- 반려 이유
+- 반려 범위
+
+카테고리/세부영역/점수/연재정보/WordPress URL/Prompt Version 등은 Firestore에만 저장하고 Notion에서는 제거한다.
+필요해지는 시점에 다시 확장한다.
+
+## 로컬 우선 테스트
+
+코드 변경 직후 Vercel 배포를 기다리지 않고 `/Users/ungveloper/Desktop/UNG/problem-solving-research-web`에서 `npm run test:local`을 실행한다.
+이 명령은 `.env.local`을 사용하는 로컬 Next 서버를 임시 포트로 실행하고 실제 Firestore/Notion에 대해 V4 Preview 전체 일일 흐름을 호출한 뒤 서버를 종료한다.
+Vercel/GitHub Actions는 로컬 검증이 끝난 뒤 최종 자동화 확인에 사용한다.
