@@ -14,6 +14,7 @@ export type ProblemStatus = (typeof problemStatuses)[number];
 export type ProblemMode = "NEW" | "CONTINUE" | "UPDATE" | "EXPAND";
 export type StoryMode = "ONE_SHOT" | "LIVING_LOG" | "SERIES";
 export type RejectionScope = "EXACT" | "CLUSTER" | "SCOPE";
+export type DailyPromptMode = "DISCOVERY" | "CONTINUATION_FIRST";
 
 export type ProblemRecord = {
   title: string;
@@ -29,10 +30,35 @@ export type ProblemRecord = {
   prompt?: string;
   promptVersion?: string;
   notionPageId?: string;
+  notionUrl?: string;
   wordpressUrl?: string;
   linkedArticleId?: string;
   rejectionReason?: string;
   rejectionScope?: RejectionScope;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DailyPromptRecord = {
+  title: string;
+  dateKey: string;
+  status: ProblemStatus;
+  mode: DailyPromptMode;
+  prompt: string;
+  promptVersion: string;
+  notionPageId?: string;
+  notionUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SiteProfileRecord = {
+  siteId: string;
+  phase: "PROMPT_VALIDATION" | "WORDPRESS_CONNECTED";
+  activeScopes: string[];
+  principles: string[];
+  wordpressDeferred: boolean;
+  dailyPromptTime: string;
   createdAt: string;
   updatedAt: string;
 };

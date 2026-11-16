@@ -2,6 +2,7 @@ import { env, NOTION_API_VERSION } from "@/lib/config";
 import {
   internalStatusFromNotion,
   notionStatusByInternal,
+  type DailyPromptRecord,
   type ProblemRecord,
   type ProblemStatus,
   type RejectionScope,
@@ -55,7 +56,7 @@ function promptBlocks(prompt?: string) {
   }));
 }
 
-function baseProperties(id: string, problem: ProblemRecord) {
+function baseProblemProperties(id: string, problem: ProblemRecord) {
   return {
     [env.notionTitleProperty]: { title: richText(problem.title) },
     [env.notionStatusProperty]: { status: { name: notionStatusByInternal[problem.status] } },
@@ -74,6 +75,28 @@ function baseProperties(id: string, problem: ProblemRecord) {
     "생성일": { date: { start: problem.createdAt } },
     "Firestore ID": { rich_text: richText(id) },
     "Prompt Version": { rich_text: richText(problem.promptVersion ?? "v1") },
+  };
+}
+
+function baseDailyPromptProperties(id: string, daily: DailyPromptRecord) {
+  return {
+    [env.notionTitleProperty]: { title: richText(daily.title) },
+    [env.notionStatusProperty]: { status: { name: notionStatusByInternal[daily.status] } },
+    "카테고리": { select: null },
+    "세부 영역": { select: null },
+    "유형": { select: { name: "DAILY_RESEARCH" } },
+    "추천점수": { number: null },
+    "Problem ID": { rich_text: [] },
+    "Mission ID": { rich_text: [] },
+    "연재 유형": { select: null },
+    "현재 일차": { number: null },
+    "관련 기존 글": { rich_text: richText(daily.mode === "CONTINUATION_FIRST" ? "진행 중 문제 우선" : "신규 문제 탐색") },
+    "WordPress URL": { url: null },
+    "반려 이유": { select: null },
+    "반려 범위": { select: null },
+    "생성일": { date: { start: daily.createdAt } },
+    "Firestore ID": { rich_text: richText(id) },
+    "Prompt Version": { rich_text: richText(daily.promptVersion) },
   };
 }
 
@@ -104,7 +127,43 @@ export async function createProblemNotionPage(id: string, problem: ProblemRecord
     method: "POST",
     body: JSON.stringify({
       parent: { type: "data_source_id", data_source_id: env.notionDataSourceId },
-      properties: baseProperties(id, problem),
+      properties: baseProblemProperties(id, problem),
+      children,
+    }),
+  });
+
+  return (await response.json()) as { id: string; url?: string };
+}
+
+export async function createDailyPromptNotionPage(id: string, daily: DailyPromptRecord) {
+  if (!env.notionDataSourceId) throw new Error("NOTION_DATA_SOURCE_ID가 설정되지 않았습니다.");
+
+  const children = [
+    {
+      object: "block",
+      type: "callout",
+      callout: {
+        icon: { type: "emoji", emoji: "🧭" },
+        rich_text: richText(
+          daily.mode === "CONTINUATION_FIRST"
+            ? "진행 중인 문제를 먼저 이어갈지 판단하는 일일 세션입니다. 아래 프롬프트를 ChatGPT Plus에 그대로 붙여넣으세요."
+            : "오늘 직접 확인할 문제를 찾는 일일 조사 세션입니다. 아래 프롬프트를 ChatGPT Plus에 그대로 붙여넣으세요.",
+        ),
+      },
+    },
+    {
+      object: "block",
+      type: "heading_2",
+      heading_2: { rich_text: richText("ChatGPT Plus에 그대로 붙여넣기") },
+    },
+    ...promptBlocks(daily.prompt),
+  ];
+
+  const response = await notionFetch("/pages", {
+    method: "POST",
+    body: JSON.stringify({
+      parent: { type: "data_source_id", data_source_id: env.notionDataSourceId },
+      properties: baseDailyPromptProperties(id, daily),
       children,
     }),
   });
@@ -171,11 +230,12 @@ async function queryNotionPages() {
 
 export async function syncNotionStatuses() {
   if (!env.notionApiKey || !env.notionDataSourceId) {
-    return { skipped: true, scanned: 0, updated: 0 };
+    return { skipped: true, scanned: 0, problemsUpdated: 0, dailyPromptsUpdated: 0 };
   }
 
   const pages = await queryNotionPages();
-  let updated = 0;
+  let problemsUpdated = 0;
+  let dailyPromptsUpdated = 0;
 
   for (const page of pages) {
     const firestoreId = plainText(page.properties["Firestore ID"]);
@@ -183,41 +243,53 @@ export async function syncNotionStatuses() {
 
     const statusLabel = plainText(page.properties[env.notionStatusProperty]);
     const status = internalStatusFromNotion(statusLabel);
-    const rejectionReason = plainText(page.properties["반려 이유"]);
-    const rejectionScope = plainText(page.properties["반려 범위"]) as RejectionScope | "";
-    const wordpressUrl = plainText(page.properties["WordPress URL"]);
 
-    const current = await getDocument<ProblemRecord>("problems", firestoreId);
-    if (!current) continue;
+    const currentProblem = await getDocument<ProblemRecord>("problems", firestoreId);
+    if (currentProblem) {
+      const rejectionReason = plainText(page.properties["반려 이유"]);
+      const rejectionScope = plainText(page.properties["반려 범위"]) as RejectionScope | "";
+      const wordpressUrl = plainText(page.properties["WordPress URL"]);
 
-    const changes: Record<string, unknown> = { notionPageId: page.id, updatedAt: new Date().toISOString() };
-    if (status) changes.status = status;
-    if (rejectionReason) changes.rejectionReason = rejectionReason;
-    if (rejectionScope) changes.rejectionScope = rejectionScope;
-    if (wordpressUrl) changes.wordpressUrl = wordpressUrl;
+      const changes: Record<string, unknown> = { notionPageId: page.id, updatedAt: new Date().toISOString() };
+      if (status) changes.status = status;
+      if (rejectionReason) changes.rejectionReason = rejectionReason;
+      if (rejectionScope) changes.rejectionScope = rejectionScope;
+      if (wordpressUrl) changes.wordpressUrl = wordpressUrl;
 
-    await patchDocument("problems", firestoreId, changes);
+      await patchDocument("problems", firestoreId, changes);
 
-    if (status === "REJECTED") {
-      await upsertDocument("rejections", firestoreId, {
-        problemId: firestoreId,
-        title: current.data.title,
-        category: current.data.category ?? "",
-        clusterKey: current.data.clusterKey ?? "",
-        reason: rejectionReason || "기타",
-        scope: rejectionScope || "CLUSTER",
-        active: true,
-        rejectedAt: new Date().toISOString(),
-      });
-    } else {
-      const rejection = await getDocument("rejections", firestoreId);
-      if (rejection) await patchDocument("rejections", firestoreId, { active: false, updatedAt: new Date().toISOString() });
+      if (status === "REJECTED") {
+        await upsertDocument("rejections", firestoreId, {
+          problemId: firestoreId,
+          title: currentProblem.data.title,
+          category: currentProblem.data.category ?? "",
+          clusterKey: currentProblem.data.clusterKey ?? "",
+          reason: rejectionReason || "기타",
+          scope: rejectionScope || "CLUSTER",
+          active: true,
+          rejectedAt: new Date().toISOString(),
+        });
+      } else {
+        const rejection = await getDocument("rejections", firestoreId);
+        if (rejection) await patchDocument("rejections", firestoreId, { active: false, updatedAt: new Date().toISOString() });
+      }
+
+      problemsUpdated += 1;
+      continue;
     }
 
-    updated += 1;
+    const currentDaily = await getDocument<DailyPromptRecord>("dailyPrompts", firestoreId);
+    if (currentDaily) {
+      await patchDocument("dailyPrompts", firestoreId, {
+        notionPageId: page.id,
+        ...(status ? { status } : {}),
+        updatedAt: new Date().toISOString(),
+      });
+      dailyPromptsUpdated += 1;
+    }
   }
 
-  return { skipped: false, scanned: pages.length, updated };
+  return { skipped: false, scanned: pages.length, problemsUpdated, dailyPromptsUpdated };
 }
 
 export async function pushPendingProblemsToNotion() {
@@ -229,6 +301,25 @@ export async function pushPendingProblemsToNotion() {
     if (problem.data.notionPageId) continue;
     const page = await createProblemNotionPage(problem.id, problem.data);
     await patchDocument("problems", problem.id, {
+      notionPageId: page.id,
+      notionUrl: page.url ?? "",
+      updatedAt: new Date().toISOString(),
+    });
+    created += 1;
+  }
+
+  return { skipped: false, created };
+}
+
+export async function pushPendingDailyPromptsToNotion() {
+  if (!env.notionApiKey || !env.notionDataSourceId) return { skipped: true, created: 0 };
+  const prompts = await listDocuments<DailyPromptRecord>("dailyPrompts", 90);
+  let created = 0;
+
+  for (const prompt of prompts) {
+    if (prompt.data.notionPageId) continue;
+    const page = await createDailyPromptNotionPage(prompt.id, prompt.data);
+    await patchDocument("dailyPrompts", prompt.id, {
       notionPageId: page.id,
       notionUrl: page.url ?? "",
       updatedAt: new Date().toISOString(),

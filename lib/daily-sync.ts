@@ -1,7 +1,13 @@
 import { env } from "@/lib/config";
+import { ensureDailyPrompt } from "@/lib/daily-prompt";
 import { upsertDocument } from "@/lib/firestore";
-import { pushPendingProblemsToNotion, syncNotionStatuses } from "@/lib/notion";
+import {
+  pushPendingDailyPromptsToNotion,
+  pushPendingProblemsToNotion,
+  syncNotionStatuses,
+} from "@/lib/notion";
 import { reconcilePublishedProblems } from "@/lib/publishing";
+import { ensureSiteProfile } from "@/lib/site-profile";
 import { syncWordPress } from "@/lib/wordpress";
 
 function koreaDateKey(date = new Date()) {
@@ -15,21 +21,44 @@ function koreaDateKey(date = new Date()) {
 
 export async function runDailySync(trigger: "cron" | "manual" | "webhook" = "manual") {
   const startedAt = new Date().toISOString();
-  const wordpress = await syncWordPress();
-  const publishing = await reconcilePublishedProblems(wordpress.posts);
-  const notion = await syncNotionStatuses();
-  const notionPush = await pushPendingProblemsToNotion();
-  const finishedAt = new Date().toISOString();
 
+  const profile = await ensureSiteProfile();
+  const notion = await syncNotionStatuses();
+
+  const wordpress = await syncWordPress();
+  const publishing = wordpress.skipped
+    ? { skipped: true, published: 0 }
+    : { skipped: false, ...(await reconcilePublishedProblems(wordpress.posts)) };
+
+  const dailyPrompt = await ensureDailyPrompt();
+  const problemPush = await pushPendingProblemsToNotion();
+  const dailyPromptPush = await pushPendingDailyPromptsToNotion();
+
+  const finishedAt = new Date().toISOString();
   const result = {
     trigger,
     siteId: env.siteId,
+    phase: profile.data.phase,
     startedAt,
     finishedAt,
-    wordpress: { skipped: wordpress.skipped, categories: wordpress.categories, articles: wordpress.articles },
+    wordpress: {
+      configured: Boolean(env.wordpressBaseUrl),
+      skipped: wordpress.skipped,
+      categories: wordpress.categories,
+      articles: wordpress.articles,
+    },
     publishing,
     notion,
-    notionPush,
+    dailyPrompt: {
+      id: dailyPrompt.id,
+      created: dailyPrompt.created,
+      mode: dailyPrompt.data.mode,
+      notionPageId: dailyPrompt.data.notionPageId ?? "",
+    },
+    notionPush: {
+      problems: problemPush,
+      dailyPrompts: dailyPromptPush,
+    },
   };
 
   await upsertDocument("dailyRuns", `${koreaDateKey()}-${trigger}`, result);

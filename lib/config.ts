@@ -32,9 +32,14 @@ export function getConnectionState() {
   const wordpressMissing = env.wordpressBaseUrl ? [] : ["WORDPRESS_BASE_URL"];
 
   return {
-    firebase: { configured: firebaseMissing.length === 0, missing: firebaseMissing },
-    notion: { configured: notionMissing.length === 0, missing: notionMissing },
-    wordpress: { configured: wordpressMissing.length === 0, missing: wordpressMissing },
+    firebase: { configured: firebaseMissing.length === 0, required: true, missing: firebaseMissing },
+    notion: { configured: notionMissing.length === 0, required: true, missing: notionMissing },
+    wordpress: {
+      configured: wordpressMissing.length === 0,
+      required: false,
+      deferred: wordpressMissing.length > 0,
+      missing: wordpressMissing,
+    },
   };
 }
 
