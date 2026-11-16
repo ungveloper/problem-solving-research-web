@@ -202,7 +202,7 @@ function resultMemoryContract() {
     "Daily Research 답변의 맨 마지막에 반드시 JSON 코드 블록을 하나만 추가한다.",
     "이 JSON은 Notion의 '선택 결과 JSON' 속성에 붙여넣어 Firestore Problem 기억으로 반영하는 운영 메타데이터다.",
     "JSON 전체를 1,400자 이내로 유지하고 설명문·인용·URL·마크다운을 JSON 값 안에 넣지 않는다.",
-    "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary/storySeed를 채운다.",
+    "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary/storySeed를 채운다. missionSummary는 사용자 지시 체크리스트가 아니라 배우가 어떤 장면을 거쳐 확인할지 한 문장으로 요약한다.",
     "concept는 블로그 형식이나 Story Shape가 아니라 '무엇을 확인할지'에 대한 검증 관점이다.",
     "Evidence 전에는 storyMode를 새로 정하지 않는다. 기존 CONTINUE Problem에 이미 storyMode가 있더라도 오늘 실제 결과가 바뀌면 Evidence 이후 다시 판단할 수 있다.",
     "CONTINUE이면 existingProblemId를 Problem 기억 인덱스의 정확한 ID로 채운다.",
@@ -221,13 +221,27 @@ function verificationInstructions() {
   ].join("\n");
 }
 
+function actorObserverInstructions() {
+  return [
+    "[배우 관찰 시나리오 — 사용자 지시문이 아님]",
+    "오늘 할 행동을 '1. 확인하세요 / 2. 눌러보세요' 같은 사용자용 체크리스트로 쓰지 않는다.",
+    "대신 한 명의 배우가 실제 생활 속에서 이 문제를 직접 겪고 움직이는 장면을, 관찰자가 옆에서 보고 있는 것처럼 3인칭 현재형으로 이어서 쓴다.",
+    "배우는 특별한 연구원이 아니라 평범한 사용자다. 실험실 용어보다 앱을 열고, 메뉴를 누르고, 화면을 보고, 다시 실행하는 실제 행동을 그대로 보여준다.",
+    "장면은 가능한 한 자연스러운 시작점에서 출발한다. 예: 평소 쓰던 기능에서 이상함을 발견함 → 안전한 테스트 데이터로 같은 상황을 다시 만들어봄 → 한 가지 조건만 바꿈 → 화면 변화를 지켜봄.",
+    "관찰자는 배우에게 명령하지 않는다. '사용자가 ~한다'보다 '배우는 ~한다', '화면을 본다', '여기서 무엇이 남는지 확인한다'처럼 장면을 서술한다.",
+    "아직 실제로 일어나지 않은 성공·실패·오류·해결 결과를 만들어내지 않는다. 결과가 갈리는 순간에는 '여기서 실제 화면과 반응을 기록한다'처럼 멈춘다.",
+    "공식 문서에 예상 동작이 있어도 배우가 실제로 본 결과처럼 쓰지 않는다. 공식 예상과 실제 관찰은 Evidence 이후에 비교한다.",
+    "불필요하게 모든 설정을 측정하거나 반복 횟수를 강제하지 않는다. 이 문제를 이해하는 데 필요한 장면만 남긴다.",
+  ].join("\n");
+}
+
 function storySeedInstructions() {
   return [
     "[Story Seed — 글 초안이 아님]",
     "Evidence 전에 블로그 본문, 제목, H2 구조, 결론을 만들지 않는다.",
-    "대신 실제로 해보면서 기억해 둘 만한 장면과 변화만 3~5줄의 Story Seed로 남긴다.",
-    "예: 처음 이상함을 발견한 순간 / 예상과 달랐던 변화 / 실패 뒤 바꿔본 한 가지 / 전후 차이를 보여주는 화면이나 시간.",
-    "Story Seed는 미래 경험을 지어내는 문장이 아니라 '이런 장면이 실제로 생기면 기록한다'는 관찰 포인트다.",
+    "대신 배우 관찰 시나리오에서 실제로 생기면 이야기의 중심이 될 만한 장면과 변화만 3~5줄의 Story Seed로 남긴다.",
+    "예: 배우가 처음 이상함을 발견한 순간 / 한 조건만 바꿨는데 예상과 달라진 장면 / 실패 뒤 다른 행동을 했을 때의 변화 / 전후 차이를 보여주는 화면이나 시간.",
+    "Story Seed는 미래 경험을 지어내는 문장이 아니라 '이 장면이 실제로 생기면 관찰자가 기록한다'는 포인트다.",
     "아무 변화도 없거나 공식 문서와 똑같은 결과만 나오면 그것도 기록하고, 글을 억지로 만들지 않는다.",
   ].join("\n");
 }
@@ -273,7 +287,7 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "[역할]",
       "당신은 '문제 해결소'의 오늘 문제 리서처이자 실험 설계자다.",
       "목표는 미리 정해진 카테고리에서 소재 하나를 뽑는 것이 아니라, 현재 웹에서 실제 문제 신호를 넓게 발견하고 그중 직접 검증할 가치가 가장 큰 문제를 고르는 것이다.",
-      "Daily Research는 글쓰기 단계가 아니다. 실제 Evidence가 생기기 전에는 블로그 본문을 만들지 말고, 오늘 직접 확인할 Problem과 최소 행동, 관찰 포인트만 정한다.",
+      "Daily Research는 글쓰기 단계가 아니다. 실제 Evidence가 생기기 전에는 블로그 본문을 만들지 말고, 오늘 직접 확인할 Problem과 배우 관찰 시나리오, 관찰 포인트만 정한다.",
       `기준 날짜: ${dateKey} (Asia/Seoul)`,
     ].join("\n"),
     buildPrincipleBlock(profileDoc.data),
@@ -300,21 +314,23 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "오늘 발행 가치가 있는 신규 Problem이 0개여도 정상이다.",
     ].join("\n"),
     verificationInstructions(),
+    actorObserverInstructions(),
     storySeedInstructions(),
     postEvidenceNaturalBlogInstructions(),
     [
       "[출력 원칙]",
       "내부적으로는 10~15개 Problem Territory를 넓게 만들고 상위 후보를 검증하되, 사용자에게 그 전체 목록을 보고서처럼 모두 펼치지 않는다.",
-      "최종 출력은 짧고 실행 중심으로 만든다. 표와 점수표는 비교에 꼭 필요할 때만 사용한다.",
-      "리서치 과정 자체를 콘텐츠처럼 길게 보여주는 것보다 오늘 무엇을 해볼지가 분명해야 한다.",
+      "최종 출력은 짧고 관찰 중심으로 만든다. 표와 점수표는 비교에 꼭 필요할 때만 사용한다.",
+      "리서치 과정 자체를 콘텐츠처럼 길게 보여주는 것보다 오늘 어떤 장면을 지켜볼지가 분명해야 한다.",
+      "행동 파트는 번호 매긴 실험 매뉴얼보다 배우의 움직임이 이어지는 짧은 장면 서술을 우선한다.",
     ].join("\n"),
     [
       "[출력 형식]",
       "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO와 최종 Problem 0~1개. 왜 지금 직접 확인할 가치가 있는지만 짧게 설명",
       "2. 오늘 살펴본 범위: 넓게 본 영역을 3~5줄로 요약하고, 최종 선택 외에 의미 있었던 다른 후보는 최대 2개만 짧게 표시",
-      "3. 오늘 직접 해볼 것: 검증 관점 하나를 바탕으로 3~6개의 현실적인 행동. 연구소식 용어보다 실제 사용자가 그대로 할 수 있는 표현을 우선",
-      "4. 기록할 것: 성공/실패, 환경, 오류 문구, 시간, 전후 차이 중 이번 Problem에 정말 필요한 Evidence만 최소화",
-      "5. Story Seed: 아직 글을 쓰지 말고, 실제로 생기면 기록할 만한 장면·변화·예상 밖 결과를 3~5줄",
+      "3. 오늘의 관찰 시나리오: 배우 한 명이 평범한 사용자처럼 문제를 직접 겪고 확인하는 장면을 3인칭 현재형으로 이어서 서술. 사용자에게 명령하는 번호형 체크리스트 금지. 결과가 필요한 지점은 지어내지 말고 관찰 순간에서 멈춤",
+      "4. 관찰자가 기록할 것: 화면 변화, 오류 문구, 시간, 전후 차이 등 이번 Problem에서 실제로 봐야 하는 Evidence만 최소화. 폼처럼 모든 항목을 채우게 하지 않음",
+      "5. Story Seed: 아직 글을 쓰지 말고, 배우의 장면에서 실제로 생기면 기억할 만한 변화·예상 밖 결과를 3~5줄",
       "6. Evidence를 받은 뒤의 규칙: 먼저 WRITE / RECORD_ONLY 판단, WRITE일 때만 Story Shape를 뒤늦게 고르고 Natural Blog 작성",
       "7. PROBLEM_MEMORY_JSON: 답변 맨 마지막에 운영 DB 반영용 JSON 코드 블록 출력",
     ].join("\n"),

@@ -156,7 +156,7 @@ curl -X POST \
 ChatGPT Plus에 붙여넣으면 최신 웹을 조사해서 최대 3개 후보를 보고, 최종 선택은 1개 이하로 제한합니다.
 가치가 부족하면 `오늘은 진행할 신규 문제 없음`을 허용합니다.
 
-V5부터 Daily Research는 블로그 초안을 만들지 않습니다. 넓은 웹 탐색 뒤 최종 Problem 0~1개, 오늘 직접 해볼 최소 행동, 필요한 Evidence, Story Seed까지만 만듭니다. 실제 결과가 들어오면 먼저 `WRITE / RECORD_ONLY`를 판단하고, `WRITE`일 때만 실제 사건 흐름에 맞는 Story Shape를 선택해 Natural Blog를 작성합니다. Notion의 생성 시각은 별도 Date 값 대신 기본 `생성 일시`(Created time)를 사용합니다.
+V5부터 Daily Research는 블로그 초안을 만들지 않습니다. 넓은 웹 탐색 뒤 최종 Problem 0~1개를 고르고, 행동 파트는 사용자가 따라 하는 체크리스트 대신 **배우 한 명이 실제로 문제를 겪고 움직이는 관찰 시나리오**로 보여줍니다. 관찰자는 그 장면에서 필요한 Evidence와 Story Seed만 남깁니다. 실제 결과가 들어오면 먼저 `WRITE / RECORD_ONLY`를 판단하고, `WRITE`일 때만 실제 사건 흐름에 맞는 Story Shape를 선택해 Natural Blog를 작성합니다. Notion의 생성 시각은 별도 Date 값 대신 기본 `생성 일시`(Created time)를 사용합니다.
 
 ## 7. Notion 상태
 
@@ -311,15 +311,15 @@ Broad Discovery
 → 기존 Problem/반려/발행 기억과 중복 검사
 → 오늘 직접 확인할 Problem 0~1개
 → 검증 관점 1개
-→ 오늘 직접 해볼 최소 행동
-→ 필요한 Evidence + Story Seed
-→ 사용자가 실제 수행
+→ 배우가 직접 움직이는 관찰 시나리오
+→ 관찰자가 필요한 Evidence + Story Seed 기록
+→ 실제 수행 결과 확보
 → Evidence 분류
 → WRITE / RECORD_ONLY
 → WRITE일 때만 Story Shape 선택
 → Natural Blog
 ```
 
-Daily Research는 내부적으로 넓게 탐색하지만 10~15개 Territory 전체를 매번 긴 보고서로 출력하지 않습니다. 최종 출력은 실행에 필요한 정보만 보여줍니다.
+Daily Research는 내부적으로 넓게 탐색하지만 10~15개 Territory 전체를 매번 긴 보고서로 출력하지 않습니다. 최종 출력의 행동 파트는 번호형 실험 매뉴얼이 아니라 배우의 움직임을 관찰하는 짧은 장면으로 보여줍니다. 아직 실제로 일어나지 않은 결과는 만들지 않습니다.
 
 최종 글은 Daily Research의 섹션 구조를 복사하지 않습니다. 실제로 벌어진 사건의 순서와 예상 밖 결과가 글 구조를 결정하며, 짧은 해결은 짧게 끝내고 실패나 미해결도 독자 가치가 있으면 그대로 기록할 수 있습니다.

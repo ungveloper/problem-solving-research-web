@@ -52,7 +52,7 @@ Prompt Composer는 현재 상태에 따라 모듈을 선택한다.
 - INFERRED: 관찰/자료로부터 추론한 것. 불확실성을 표시
 - UNVERIFIED: 발행 가능한 경험 서술로 사용 금지
 
-Evidence가 없는 상태에서는 블로그 초안을 만들지 않는다. Daily Research는 오늘 직접 확인할 Problem, 최소 행동, Evidence 포인트와 Story Seed까지만 만든다. 사용자가 실제로 해본 결과가 들어온 뒤 먼저 글 가치가 있는지 판단하고, 가치가 있을 때만 실제 사건 흐름에 맞는 Story Shape를 선택해 최종 글을 만든다.
+Evidence가 없는 상태에서는 블로그 초안을 만들지 않는다. Daily Research는 오늘 직접 확인할 Problem과 **배우 관찰 시나리오**, Evidence 포인트와 Story Seed까지만 만든다. 행동은 사용자에게 시키는 체크리스트가 아니라 한 명의 배우가 실제 생활 속에서 움직이고 관찰자가 옆에서 지켜보는 장면으로 표현한다. 실제 결과가 필요한 순간에는 성공/실패를 지어내지 않고 관찰 지점에서 멈춘다. 실제 Evidence가 들어온 뒤 먼저 글 가치가 있는지 판단하고, 가치가 있을 때만 실제 사건 흐름에 맞는 Story Shape를 선택해 최종 글을 만든다.
 
 ## Natural Blog 원칙
 
@@ -128,10 +128,11 @@ Notion의 `작성 완료`는 최종 발행이 아니다.
 3. Firestore의 기존 Problem, 진행 중 Problem, 반려 기억, 향후 발행 글을 보고 실질 중복을 제거한다.
 4. 상위 후보만 깊게 검증하고 최종 Problem은 최대 1개만 선택한다.
 5. 글 콘셉트나 Story Shape를 미리 정하지 않고, 오늘 어떤 행동으로 새로운 Evidence를 만들지에 대한 검증 관점 하나만 고른다.
-6. 사용자가 실제로 할 행동을 생활 언어로 최소화하고, 꼭 남겨야 할 Evidence만 정한다.
-7. 블로그 초안 대신 Story Seed를 남긴다. Story Seed는 실제로 생기면 기록할 장면·변화·예상 밖 결과에 대한 관찰 포인트다.
-8. 실제 Evidence가 들어온 뒤 먼저 `WRITE / RECORD_ONLY`를 판단한다.
-9. `WRITE`일 때만 실제 사건 순서에 따라 Story Shape를 선택하고 Natural Blog를 작성한다.
+6. 한 명의 배우가 실제 사용자처럼 움직이는 `관찰 시나리오`를 만든다. 번호형 지시문보다 배우의 행동이 이어지는 3인칭 현재형 장면을 우선한다.
+7. 실제 결과가 갈리는 순간에는 결과를 만들어내지 않고 관찰 지점에서 멈추며, 꼭 남겨야 할 Evidence만 정한다.
+8. 블로그 초안 대신 Story Seed를 남긴다. Story Seed는 배우의 장면에서 실제로 생기면 기록할 변화·예상 밖 결과에 대한 관찰 포인트다.
+9. 실제 Evidence가 들어온 뒤 먼저 `WRITE / RECORD_ONLY`를 판단한다.
+10. `WRITE`일 때만 실제 사건 순서에 따라 Story Shape를 선택하고 Natural Blog를 작성한다.
 
 주제 다양성을 위해 단일 OS·앱·회사 생태계가 후보를 과도하게 점유하지 않게 한다. 날짜는 특정 주제를 임의 선택하는 장치가 아니라 최신성 경계와 탐색 관점을 바꾸는 시드로 사용한다.
 
@@ -158,15 +159,15 @@ Notion은 결과 입력 UI이고 Firestore `problems`가 중복 방지의 원본
 
 ## Daily Research와 Natural Blog 분리
 
-Daily Research의 목적은 글을 생산하는 것이 아니라 **직접 해볼 가치가 있는 문제를 찾는 것**이다.
+Daily Research의 목적은 글을 생산하는 것이 아니라 **직접 확인할 가치가 있는 문제를 찾고, 그 문제를 배우가 실제로 겪는 장면으로 보여주는 것**이다.
 
 Daily Research 출력은 다음까지만 허용한다.
 
 - 오늘의 판단과 최종 Problem 0~1개
 - 넓게 살펴본 범위와 유력 후보 소수
 - 검증 관점 1개
-- 오늘 직접 해볼 최소 행동
-- 반드시 남길 Evidence
+- 배우가 직접 움직이는 관찰 시나리오
+- 관찰자가 반드시 남길 Evidence
 - Story Seed
 - `PROBLEM_MEMORY_JSON`
 

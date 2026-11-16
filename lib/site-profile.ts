@@ -28,7 +28,8 @@ const LEGACY_DEFAULT_PRINCIPLES = [
 
 const DEFAULT_PRINCIPLES = [
   "실제로 하지 않은 행동과 결과를 1인칭 경험으로 만들지 않는다.",
-  "Daily Research는 글쓰기 단계가 아니라 오늘 직접 확인할 Problem과 최소 행동을 정하는 단계다.",
+  "Daily Research는 글쓰기 단계가 아니라 오늘 직접 확인할 Problem과 관찰 시나리오를 정하는 단계다.",
+  "행동은 사용자에게 시키는 체크리스트보다 배우가 직접 움직이고 관찰자가 지켜보는 장면으로 표현한다.",
   "실제 Evidence가 들어온 뒤에만 글 가치와 Story Shape를 판단한다.",
   "Evidence가 있어도 새롭게 전달할 가치가 없으면 글을 만들지 않고 기록만 남긴다.",
   "최종 글은 실제 사건 흐름을 따르고 문제-원인-해결-결론 같은 고정 템플릿을 강제하지 않는다.",
