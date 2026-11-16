@@ -44,6 +44,16 @@ export function parseDailySelectionPayload(raw: string): DailySelectionPayload {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
   };
 
+  const textOrStringArray = (key: string) => {
+    const value = parsed[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value)) {
+      const items = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()));
+      return items.length ? items.map((item) => item.trim()).join(" / ") : undefined;
+    }
+    return undefined;
+  };
+
   return {
     decision: parseDecision(parsed.decision),
     title: text("title"),
@@ -52,7 +62,7 @@ export function parseDailySelectionPayload(raw: string): DailySelectionPayload {
     concept: text("concept"),
     whyRecommended: text("whyRecommended"),
     missionSummary: text("missionSummary"),
-    storySeed: text("storySeed"),
+    storySeed: textOrStringArray("storySeed"),
     existingProblemId: text("existingProblemId"),
     storyMode: parseStoryMode(parsed.storyMode),
   };
