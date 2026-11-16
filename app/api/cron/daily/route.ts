@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   try {
     const url = new URL(request.url);
-    const previewV4 = url.searchParams.get("preview") === "v3";
+    const previewV4 = url.searchParams.get("preview") === "v4";
     return Response.json({ ok: true, result: await runDailySync("cron", { previewV4 }) });
   } catch (error) {
     return Response.json(
