@@ -10,19 +10,20 @@ Notion은 운영 UI이고, 상세 메타데이터와 중복 판단의 원본은 
 | 이름 | Title | Daily Research 또는 Problem 제목 |
 | 상태 | Status | 추천됨 / 진행 / 테스트 중 / 글쓰기 준비 / 작성 완료 / 발행 완료 / 보류 / 반려 |
 | 유형 | Select | DAILY_RESEARCH / NEW / CONTINUE / UPDATE / EXPAND |
-| 생성일 | Date | 생성 시점 |
+| 생성 일시 | Created time | Notion이 행 생성 시각을 자동 기록 |
 | Firestore ID | Text | 시스템 동기화 키. 직접 수정하지 않음 |
 | 선택 결과 JSON | Text | ChatGPT 답변 마지막의 PROBLEM_MEMORY_JSON 붙여넣기 |
 | 결과 반영 | Checkbox | 체크하면 다음 동기화에서 Firestore Problem 기억으로 반영 |
 | 반려 이유 | Select | 반려 기억의 이유 |
 | 반려 범위 | Select | EXACT / CLUSTER / SCOPE |
 
-`Firestore ID`는 시스템용이므로 일반 뷰에서 숨겨도 됩니다.
+`Firestore ID`는 시스템용이므로 일반 뷰에서 숨겨도 됩니다. `생성 일시`는 Notion 기본 Created time 속성이므로 애플리케이션이 날짜 값을 직접 쓰지 않습니다.
 
 ## 자동 제거되는 기존 속성
 
 다음 속성은 현재 단계에서 Notion에 둘 필요가 없어 다음 동기화 때 제거합니다.
 
+- 생성일
 - 카테고리
 - 세부 영역
 - 추천점수

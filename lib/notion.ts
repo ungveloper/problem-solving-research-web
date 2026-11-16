@@ -36,7 +36,7 @@ async function notionFetch(path: string, init: RequestInit = {}) {
 
 const MINIMAL_PROPERTIES: Record<string, unknown> = {
   "유형": { select: {} },
-  "생성일": { date: {} },
+  "생성 일시": { created_time: {} },
   "Firestore ID": { rich_text: {} },
   "선택 결과 JSON": { rich_text: {} },
   "결과 반영": { checkbox: {} },
@@ -45,6 +45,7 @@ const MINIMAL_PROPERTIES: Record<string, unknown> = {
 };
 
 const LEGACY_PROPERTIES = [
+  "생성일",
   "카테고리",
   "세부 영역",
   "추천점수",
@@ -127,7 +128,6 @@ function baseProblemProperties(id: string, problem: ProblemRecord) {
     [env.notionTitleProperty]: { title: richText(problem.title) },
     [env.notionStatusProperty]: { status: { name: notionStatusByInternal[problem.status] } },
     "유형": { select: { name: problem.mode } },
-    "생성일": { date: { start: problem.createdAt } },
     "Firestore ID": { rich_text: richText(id) },
     "반려 이유": problem.rejectionReason ? { select: { name: problem.rejectionReason } } : { select: null },
     "반려 범위": problem.rejectionScope ? { select: { name: problem.rejectionScope } } : { select: null },
@@ -139,7 +139,6 @@ function baseDailyPromptProperties(id: string, daily: DailyPromptRecord) {
     [env.notionTitleProperty]: { title: richText(daily.title) },
     [env.notionStatusProperty]: { status: { name: notionStatusByInternal[daily.status] } },
     "유형": { select: { name: "DAILY_RESEARCH" } },
-    "생성일": { date: { start: daily.createdAt } },
     "Firestore ID": { rich_text: richText(id) },
     "선택 결과 JSON": { rich_text: richText(daily.selectionJson ?? "") },
     "결과 반영": { checkbox: false },
@@ -375,8 +374,7 @@ export async function syncNotionStatuses() {
 
       if (importRequested) {
         if (!selectionJson) throw new Error(`${firestoreId}: 결과 반영이 체크됐지만 선택 결과 JSON이 비어 있습니다.`);
-        const captured = await captureDailySelectionResult(firestoreId, selectionJson);
-        const problemId = captured.problemId ?? "";
+        await captureDailySelectionResult(firestoreId, selectionJson);
         await notionFetch(`/pages/${page.id}`, {
           method: "PATCH",
           body: JSON.stringify({

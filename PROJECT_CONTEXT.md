@@ -177,18 +177,18 @@ Daily Prompt는 Problem 선택과 Mission 설계만 하고 끝내지 않는다.
 - 이름
 - 상태
 - 유형
-- 생성일
+- 생성 일시 (Notion Created time)
 - Firestore ID
 - 선택 결과 JSON
 - 결과 반영
 - 반려 이유
 - 반려 범위
 
-카테고리/세부영역/점수/연재정보/WordPress URL/Prompt Version 등은 Firestore에만 저장하고 Notion에서는 제거한다.
+수동 `생성일` Date를 포함해 카테고리/세부영역/점수/연재정보/WordPress URL/Prompt Version 등은 Firestore에만 저장하고 Notion에서는 제거한다. 생성 시각 표시는 Notion 기본 `생성 일시`(Created time)를 사용한다.
 필요해지는 시점에 다시 확장한다.
 
 ## 로컬 우선 테스트
 
 코드 변경 직후 Vercel 배포를 기다리지 않고 `/Users/ungveloper/Desktop/UNG/problem-solving-research-web`에서 `npm run test:local`을 실행한다.
-이 명령은 `.env.local`을 사용하는 로컬 Next 서버를 임시 포트로 실행하고 실제 Firestore/Notion에 대해 V4 Preview 전체 일일 흐름을 호출한 뒤 서버를 종료한다.
+이 명령은 `.env.local`을 사용한다. 같은 저장소의 개발 서버가 이미 실행 중이면 그 서버를 재사용하고, 없을 때만 임시 포트에 Next 서버를 실행한다. 실제 Firestore/Notion에 대해 V4 Preview 전체 일일 흐름을 호출하며 자신이 시작한 서버만 종료한다.
 Vercel/GitHub Actions는 로컬 검증이 끝난 뒤 최종 자동화 확인에 사용한다.
