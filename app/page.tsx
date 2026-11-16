@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 
 import { getConnectionState } from "@/lib/config";
 import type { DailyPromptRecord, ProblemRecord } from "@/lib/domain";
@@ -61,6 +62,7 @@ function ConnectionBadge({
 }
 
 async function DashboardContent() {
+  await connection();
   const { connections, articles, problems, dailyPrompts, runs } = await dashboardData();
   const rejected = problems.filter((item) => item.data.status === "REJECTED").length;
   const active = problems.filter((item) => ["IN_PROGRESS", "TESTING", "READY_TO_WRITE"].includes(item.data.status)).length;
