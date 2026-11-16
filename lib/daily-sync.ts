@@ -21,7 +21,7 @@ function koreaDateKey(date = new Date()) {
 
 export async function runDailySync(
   trigger: "cron" | "manual" | "webhook" = "manual",
-  options: { previewV4?: boolean } = {},
+  options: { previewV5?: boolean } = {},
 ) {
   const startedAt = new Date().toISOString();
 
@@ -33,14 +33,14 @@ export async function runDailySync(
     ? { skipped: true, published: 0 }
     : { skipped: false, ...(await reconcilePublishedProblems(wordpress.posts)) };
 
-  const dailyPrompt = await ensureDailyPrompt(undefined, { previewV4: options.previewV4 });
+  const dailyPrompt = await ensureDailyPrompt(undefined, { previewV5: options.previewV5 });
   const problemPush = await pushPendingProblemsToNotion();
   const dailyPromptPush = await pushPendingDailyPromptsToNotion();
 
   const finishedAt = new Date().toISOString();
   const result = {
     trigger,
-    previewV4: Boolean(options.previewV4),
+    previewV5: Boolean(options.previewV5),
     siteId: env.siteId,
     phase: profile.data.phase,
     startedAt,
@@ -67,7 +67,7 @@ export async function runDailySync(
 
   await upsertDocument(
     "dailyRuns",
-    `${koreaDateKey()}-${trigger}${options.previewV4 ? "-v4-preview" : ""}`,
+    `${koreaDateKey()}-${trigger}${options.previewV5 ? "-v5-preview" : ""}`,
     result,
   );
   return result;

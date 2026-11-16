@@ -130,11 +130,11 @@ fi
 
 echo "[2/3] health 확인 완료"
 
-echo "[3/3] 현재 로컬 코드로 V4 Preview 전체 흐름 실행"
+echo "[3/3] 현재 로컬 코드로 V5 Preview 전체 흐름 실행"
 RESPONSE="$(curl --fail-with-body -sS \
   -X POST \
   -H "Authorization: Bearer $CRON_SECRET" \
-  "$BASE_URL/api/cron/daily?preview=v4")"
+  "$BASE_URL/api/cron/daily?preview=v5")"
 
 if ! printf '%s\n' "$RESPONSE" | python3 -m json.tool; then
   printf '%s\n' "$RESPONSE"
@@ -147,4 +147,4 @@ if [[ -n "$EXISTING_PORT" ]]; then
 else
   echo "테스트가 시작한 임시 개발 서버는 자동 종료합니다."
 fi
-echo "Notion에서 새 'V4 Preview' 페이지, '생성 일시' 속성, 최소 속성 구성을 확인하세요."
+echo "Notion에서 새 'V5 Preview' 페이지, '생성 일시' 속성, 최소 속성 구성을 확인하세요."
