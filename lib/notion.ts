@@ -39,21 +39,27 @@ function richText(content?: string) {
     : [];
 }
 
+function promptRichText(prompt?: string) {
+  if (!prompt) return [];
+  const segments = [];
+  for (let index = 0; index < prompt.length; index += 1_800) {
+    segments.push({ type: "text", text: { content: prompt.slice(index, index + 1_800) } });
+  }
+  return segments.slice(0, 100);
+}
+
 function promptBlocks(prompt?: string) {
   if (!prompt) return [];
-  const chunks: string[] = [];
-  for (let index = 0; index < prompt.length; index += 1_800) {
-    chunks.push(prompt.slice(index, index + 1_800));
-  }
-
-  return chunks.slice(0, 90).map((chunk) => ({
-    object: "block",
-    type: "code",
-    code: {
-      language: "plain text",
-      rich_text: richText(chunk),
+  return [
+    {
+      object: "block",
+      type: "code",
+      code: {
+        language: "plain text",
+        rich_text: promptRichText(prompt),
+      },
     },
-  }));
+  ];
 }
 
 function baseProblemProperties(id: string, problem: ProblemRecord) {
