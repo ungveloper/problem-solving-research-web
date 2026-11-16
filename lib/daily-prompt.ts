@@ -8,7 +8,7 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v5";
+const PROMPT_VERSION = "daily-session-v5.8";
 
 const EXPLORATION_LENSES = [
   "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
@@ -266,6 +266,29 @@ function firstPersonIdentityGuardInstructions() {
   ].join("\n");
 }
 
+function evidenceScopeGuardInstructions() {
+  return [
+    "[Evidence 범위 가드 — 제목/H2/본문/마무리에 모두 적용]",
+    "글의 주장 범위는 실제로 확인한 Evidence 환경보다 넓어지면 안 된다. 관심 Problem의 범위와 이번 세션에서 직접 확인한 범위를 구분한다.",
+    "Python·코드·파일 도구로 ZIP 내부 문자열이나 메타데이터를 확인한 것은 그 도구 환경에서 ZIP 내부를 확인한 Evidence다. 이것을 Mac Finder나 Windows 파일 탐색기에서 같은 현상을 직접 재현한 것처럼 확대하지 않는다.",
+    "브라우저 한 곳, 특정 앱 버전, 특정 파일 하나에서 확인한 결과도 모든 OS·앱·파일에 일반화하지 않는다.",
+    "현재 세션에서 코드/파일 도구로 안전하게 직접 검증 가능한 부분이 있고 정보가치가 높다면 실제로 수행해도 된다. 수행했다면 무엇으로 무엇을 확인했는지 본문에 짧게 드러낸다.",
+    "직접 확인하지 못한 OS GUI·기기·앱 동작은 OFFICIAL/UNVERIFIED 배경 또는 다음 확인 범위로 남기고 OBSERVED 결과처럼 쓰지 않는다.",
+    "블로그 제목, H1, H2, 굵은 핵심 문장, 마지막 판단은 특히 Evidence 범위를 넘지 않게 한다. 넓은 Problem을 선택했더라도 실제 확인이 좁으면 글 제목도 확인한 범위에 맞춰 좁힌다.",
+    "예: Problem이 'Mac과 Windows 사이 ZIP 한글 파일명 깨짐'이어도 Python에서 인코딩/정규화만 비교했다면 글은 'ZIP 한글 파일명 깨짐, 인코딩과 자모 분리를 비교해봤다'처럼 직접 확인한 층위를 중심으로 쓴다.",
+  ].join("\n");
+}
+
+function outputStructureGuardInstructions() {
+  return [
+    "[출력 구조 회귀 방지]",
+    "사용자에게 보여주는 최상위 번호 섹션은 [출력 형식]에 지정된 1~6만 사용한다. 그 사이에 '선정 문제의 직접 비교 결과', '실험 결과', 'Evidence 표' 같은 별도 번호 섹션을 추가하지 않는다.",
+    "현재 세션에서 직접 테스트한 결과가 생겼다면 그 Evidence는 문제 해결소 블로그 초안 안의 해당 장면에 자연스럽게 통합한다. 같은 결과를 블로그 앞뒤에서 표와 본문으로 두 번 반복하지 않는다.",
+    "비교표가 정말 이해에 필요하면 블로그 초안 안에 한 번만 넣는다. 표 내용을 다시 문단별로 전부 반복하지 않는다.",
+    "운영용 정보는 오늘의 판단, 실제 관찰 후 업데이트할 포인트, PROBLEM_MEMORY_JSON에만 남기고 블로그 본문을 보고서처럼 분리하지 않는다.",
+  ].join("\n");
+}
+
 function editorialQualityInstructions() {
   return [
     "[초안 작성 후 편집자 자체 점검 — 출력 전에 반드시 수행]",
@@ -374,6 +397,8 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
     actorObserverInstructions(),
     observationBlogDraftInstructions(),
     firstPersonIdentityGuardInstructions(),
+    evidenceScopeGuardInstructions(),
+    outputStructureGuardInstructions(),
     editorialQualityInstructions(),
     imagePlanInstructions(),
     storySeedInstructions(),
@@ -385,15 +410,18 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "내부 행동 시나리오, 기록할 Evidence, Story Seed를 각각 긴 운영 섹션으로 반복하지 말고 블로그 초안 안에 자연스럽게 녹인다.",
       "블로그 본문에는 배우·관찰자·한 사용자라는 표현을 노출하지 않는다. 운영 정보보다 내가 직접 움직이는 문제 장면과 글의 흐름이 더 많은 비중을 차지해야 한다.",
       "초안을 출력하기 전에 중복 문단, 억지 분량, 애매한 마지막 문단을 편집자 관점에서 한 번 더 줄이되, 1인칭 체험형 행동 흐름은 절대 일반 가이드 말투로 약화시키지 않는다.",
+      "제목·H2·핵심 문장·마지막 판단은 실제 OBSERVED 환경보다 넓게 일반화하지 않는다. 직접 확인한 도구/환경의 범위를 글에서 숨기지 않는다.",
+      "현재 세션에서 직접 얻은 Evidence는 블로그 초안에 통합하고 같은 내용을 별도 상위 결과 섹션으로 다시 반복하지 않는다.",
       "이미지는 필요한 경우에만 제안하고, 실제 Evidence 스크린샷과 생성 가능한 설명 이미지를 명확히 구분한다. 제안한 이미지는 본문 안의 정확한 위치에도 같은 번호의 삽입 마커를 표시한다.",
     ].join("\n"),
     [
       "[출력 형식]",
-      "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO와 최종 Problem 0~1개. 선택 이유는 핵심만 짧게 설명",
+      "아래 1~6 외의 추가 최상위 번호 섹션을 만들지 않는다. 직접 실험 결과가 있어도 별도 '직접 비교 결과' 섹션으로 빼지 말고 3번 블로그 초안 안에 녹인다.",
+      "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO와 최종 Problem 0~1개. 선택 이유는 핵심만 짧게 설명. Problem 범위가 실제 Evidence보다 넓을 수 있다는 점은 구분",
       "2. 오늘 살펴본 범위: 넓게 본 영역을 2~4줄로 요약하고, 최종 선택 외에 정말 의미 있었던 후보가 있으면 최대 2개만 짧게 표시",
-      "3. 문제 해결소 블로그 초안: NEW/CONTINUE이면 반드시 자연스러운 제목과 본문을 작성. 내부 행동 시나리오를 화자 나의 1인칭 체험 서술로 변환하고, 배우·관찰자·한 사용자라는 표현은 본문에서 금지. 리서치/공식 자료는 필요한 만큼만 녹이고 별도의 시나리오·Evidence 표·Story Seed 섹션을 반복해서 만들지 않음. 출력 전 중복·늘어짐·애매한 마무리를 자체 편집하되 1인칭 체험감은 보존. 이미지가 필요하면 실제 들어갈 자리마다 '[이미지 N 삽입: 설명 — 종류]' 마커를 본문에 직접 표시",
+      "3. 문제 해결소 블로그 초안: NEW/CONTINUE이면 반드시 자연스러운 제목과 본문을 작성. 내부 행동 시나리오를 화자 나의 1인칭 체험 서술로 변환하고, 배우·관찰자·한 사용자라는 표현은 본문에서 금지. 리서치/공식 자료는 필요한 만큼만 녹임. 현재 세션에서 도구로 직접 얻은 Evidence가 있으면 이 본문에 통합하고 별도의 결과 보고서로 반복하지 않음. 제목/H2/핵심 판단은 실제 OBSERVED 환경보다 넓게 쓰지 않음. 출력 전 중복·늘어짐·애매한 마무리를 자체 편집하되 1인칭 체험감은 보존. 이미지가 필요하면 실제 들어갈 자리마다 '[이미지 N 삽입: 설명 — 종류]' 마커를 본문에 직접 표시",
       "4. 이미지 계획: 필요한 경우에만 최대 3개. 본문 마커와 동일한 번호·설명을 사용해 각 항목에 삽입 위치/목적/종류를 적고, 생성 이미지라면 상세 생성 프롬프트를 제공. 실제 화면·오류·전후 Evidence는 '실제 캡처(생성 금지)'로 표시. 불필요하면 생성 이미지 없음",
-      "5. 실제 관찰 후 업데이트할 포인트: 최종본으로 바꿀 때 반드시 확인해야 할 장면이나 결과를 최대 3개만 짧게 표시",
+      "5. 실제 관찰 후 업데이트할 포인트: 아직 직접 확인하지 못한 환경/장면 또는 최종본에서 반드시 확인해야 할 결과를 최대 3개만 짧게 표시",
       "6. PROBLEM_MEMORY_JSON: 답변 맨 마지막에 운영 DB 반영용 JSON 코드 블록 출력",
     ].join("\n"),
     resultMemoryContract(),
