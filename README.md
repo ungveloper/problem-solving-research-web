@@ -156,7 +156,7 @@ curl -X POST \
 ChatGPT Plus에 붙여넣으면 최신 웹을 조사해서 최대 3개 후보를 보고, 최종 선택은 1개 이하로 제한합니다.
 가치가 부족하면 `오늘은 진행할 신규 문제 없음`을 허용합니다.
 
-V4부터는 Evidence 전에도 웹 근거와 실험 계획을 기반으로 `검증 전 블로그 초안`까지 만듭니다. 다만 직접 수행 결과는 지어내지 않고, 실제 Evidence가 들어오면 초안을 최종 글로 갱신합니다. Notion의 생성 시각은 별도 Date 값 대신 기본 `생성 일시`(Created time)를 사용합니다.
+V5부터 Daily Research는 블로그 초안을 만들지 않습니다. 넓은 웹 탐색 뒤 최종 Problem 0~1개, 오늘 직접 해볼 최소 행동, 필요한 Evidence, Story Seed까지만 만듭니다. 실제 결과가 들어오면 먼저 `WRITE / RECORD_ONLY`를 판단하고, `WRITE`일 때만 실제 사건 흐름에 맞는 Story Shape를 선택해 Natural Blog를 작성합니다. Notion의 생성 시각은 별도 Date 값 대신 기본 `생성 일시`(Created time)를 사용합니다.
 
 ## 7. Notion 상태
 
@@ -216,7 +216,7 @@ Prompt Validation 단계에서 실제 ChatGPT Plus 결과를 보면서 다음을
 V2부터 `Mac / Windows / PDF ...` 목록은 고정 허용 범위가 아니라 참고 앵커로만 사용합니다.
 ChatGPT Plus는 먼저 여러 영역에서 10~15개의 Problem Territory를 넓게 탐색하고, 실제 웹 반복 신호를 확인한 5개 이하를 비교한 뒤 최종 Problem을 최대 1개 선택합니다.
 
-최종 Problem을 고른 뒤에도 바로 글을 쓰지 않습니다. 서로 다른 콘텐츠 콘셉트 2개를 제안하고 직접 만들 수 있는 Evidence가 더 강한 콘셉트를 고른 뒤 Mission을 설계합니다.
+최종 Problem을 고른 뒤에도 글 형식이나 Story Shape를 미리 정하지 않습니다. 오늘 어떤 행동으로 새로운 Evidence를 만들지에 대한 검증 관점 하나만 고르고, 실제 사용자가 그대로 할 수 있는 최소 행동과 Story Seed를 남깁니다.
 
 오늘 이미 V1 프롬프트를 생성한 상태에서 V2를 별도로 비교하려면:
 
@@ -252,7 +252,7 @@ Notion 선택 결과
 → 다음 Daily Prompt의 Problem 기억 인덱스에 포함
 ```
 
-수동 `Run workflow`는 테스트를 위해 매번 새 `V3 Preview`를 생성합니다.
+수동 `Run workflow`는 테스트를 위해 매번 새 `V5 Preview`를 생성합니다.
 정기 스케줄 실행은 기존처럼 하루에 하나의 일반 Daily Prompt만 생성합니다.
 
 `NEW` 결과 JSON 예시:
@@ -281,18 +281,18 @@ npm run test:local
 ```
 
 `.env.local`의 `CRON_SECRET`을 자동으로 읽으며 별도로 비밀값을 붙여넣지 않습니다.
-임시 로컬 Next 서버를 시작한 뒤 `/api/cron/daily?preview=v4`를 호출하고 자동 종료합니다.
-이 테스트는 실제 Firestore/Notion을 사용하므로 V4 Preview와 스키마 정리가 실제 DB에 반영됩니다.
+임시 로컬 Next 서버를 시작한 뒤 `/api/cron/daily?preview=v5`를 호출하고 자동 종료합니다.
+이 테스트는 실제 Firestore/Notion을 사용하므로 V5 Preview와 스키마 정리가 실제 DB에 반영됩니다.
 
 ## Notion 최소 속성
 
-V4부터 현재 단계에서 필요한 속성만 유지합니다.
+현재 단계에서는 필요한 속성만 유지합니다.
 
 ```text
 이름
 상태
 유형
-생성일
+생성 일시
 Firestore ID
 선택 결과 JSON
 결과 반영
@@ -301,3 +301,25 @@ Firestore ID
 ```
 
 기존의 카테고리, 세부 영역, 추천점수, Problem ID, Mission ID, 연재 유형, 현재 일차, 관련 기존 글, WordPress URL, Prompt Version 및 상태 변경용 버튼 열은 다음 동기화 시 제거됩니다. 상세 메타데이터는 Firestore에 계속 보존합니다.
+
+## Daily Research V5 — 실제 경험이 글의 형태를 결정
+
+V5의 핵심은 리서치와 글쓰기를 분리하는 것입니다.
+
+```text
+Broad Discovery
+→ 기존 Problem/반려/발행 기억과 중복 검사
+→ 오늘 직접 확인할 Problem 0~1개
+→ 검증 관점 1개
+→ 오늘 직접 해볼 최소 행동
+→ 필요한 Evidence + Story Seed
+→ 사용자가 실제 수행
+→ Evidence 분류
+→ WRITE / RECORD_ONLY
+→ WRITE일 때만 Story Shape 선택
+→ Natural Blog
+```
+
+Daily Research는 내부적으로 넓게 탐색하지만 10~15개 Territory 전체를 매번 긴 보고서로 출력하지 않습니다. 최종 출력은 실행에 필요한 정보만 보여줍니다.
+
+최종 글은 Daily Research의 섹션 구조를 복사하지 않습니다. 실제로 벌어진 사건의 순서와 예상 밖 결과가 글 구조를 결정하며, 짧은 해결은 짧게 끝내고 실패나 미해결도 독자 가치가 있으면 그대로 기록할 수 있습니다.

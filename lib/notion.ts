@@ -165,7 +165,7 @@ export async function createProblemNotionPage(id: string, problem: ProblemRecord
           {
             object: "block",
             type: "paragraph",
-            paragraph: { rich_text: richText(`선택 콘텐츠 콘셉트: ${problem.contentConcept}`) },
+            paragraph: { rich_text: richText(`검증 관점: ${problem.contentConcept}`) },
           },
         ]
       : []),

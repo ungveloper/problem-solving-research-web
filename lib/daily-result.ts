@@ -52,6 +52,7 @@ export function parseDailySelectionPayload(raw: string): DailySelectionPayload {
     concept: text("concept"),
     whyRecommended: text("whyRecommended"),
     missionSummary: text("missionSummary"),
+    storySeed: text("storySeed"),
     existingProblemId: text("existingProblemId"),
     storyMode: parseStoryMode(parsed.storyMode),
   };
@@ -79,7 +80,7 @@ async function captureNewProblem(dailyId: string, daily: DailyPromptRecord, payl
   }
 
   const now = new Date().toISOString();
-  const storyMode = payload.storyMode ?? "ONE_SHOT";
+  const storyMode = payload.storyMode;
   const prompt = await composeResearchPrompt({
     title: payload.title,
     category: payload.category,
@@ -101,6 +102,7 @@ async function captureNewProblem(dailyId: string, daily: DailyPromptRecord, payl
     clusterKey: normalizeKey(`${payload.category ?? ""} ${payload.detailArea ?? ""} ${payload.title}`),
     contentConcept: payload.concept,
     missionSummary: payload.missionSummary,
+    storySeed: payload.storySeed,
     sourceDailyPromptId: dailyId,
     sourceDailyPromptDateKey: daily.dateKey,
     selectedAt: now,
@@ -131,6 +133,7 @@ async function captureContinuation(dailyId: string, daily: DailyPromptRecord, pa
     status: "IN_PROGRESS",
     ...(payload.concept ? { contentConcept: payload.concept } : {}),
     ...(payload.missionSummary ? { missionSummary: payload.missionSummary } : {}),
+    ...(payload.storySeed ? { storySeed: payload.storySeed } : {}),
     ...(payload.whyRecommended ? { whyRecommended: payload.whyRecommended } : {}),
     sourceDailyPromptId: dailyId,
     sourceDailyPromptDateKey: daily.dateKey,

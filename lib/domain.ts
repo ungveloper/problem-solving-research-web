@@ -25,6 +25,7 @@ export type DailySelectionPayload = {
   concept?: string;
   whyRecommended?: string;
   missionSummary?: string;
+  storySeed?: string;
   existingProblemId?: string;
   storyMode?: StoryMode;
 };
@@ -50,6 +51,7 @@ export type ProblemRecord = {
   rejectionScope?: RejectionScope;
   contentConcept?: string;
   missionSummary?: string;
+  storySeed?: string;
   sourceDailyPromptId?: string;
   sourceDailyPromptDateKey?: string;
   selectedAt?: string;

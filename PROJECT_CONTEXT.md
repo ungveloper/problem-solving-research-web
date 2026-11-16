@@ -52,7 +52,7 @@ Prompt Composer는 현재 상태에 따라 모듈을 선택한다.
 - INFERRED: 관찰/자료로부터 추론한 것. 불확실성을 표시
 - UNVERIFIED: 발행 가능한 경험 서술로 사용 금지
 
-Evidence가 없는 상태에서는 직접 수행 결과를 확정한 최종 1인칭 경험담을 완성하지 않는다. 대신 웹 근거와 실험 계획만으로 `검증 전 블로그 초안`을 만들 수 있다. 이 초안은 발행 보류 상태이며 직접 경험이 필요한 부분은 미확정으로 표시한다. 실제 Evidence가 들어오면 해당 부분을 OBSERVED 결과로 교체하고 구조를 다시 다듬어 최종 글로 확정한다.
+Evidence가 없는 상태에서는 블로그 초안을 만들지 않는다. Daily Research는 오늘 직접 확인할 Problem, 최소 행동, Evidence 포인트와 Story Seed까지만 만든다. 사용자가 실제로 해본 결과가 들어온 뒤 먼저 글 가치가 있는지 판단하고, 가치가 있을 때만 실제 사건 흐름에 맞는 Story Shape를 선택해 최종 글을 만든다.
 
 ## Natural Blog 원칙
 
@@ -116,7 +116,7 @@ Notion의 `작성 완료`는 최종 발행이 아니다.
 
 사용자가 충분히 검증한 뒤 필요한 부분만 단계적으로 자동화한다.
 
-## 일일 탐색 V2 — 넓은 후보 탐색 후 콘셉트 설계
+## 일일 탐색 V5 — 넓게 찾고, 실제로 해볼 것만 남기기
 
 `activeScopes`는 고정 허용 목록이 아니라 이미 관심을 가져온 참고 앵커다.
 일일 조사에서 앵커 밖 주제를 금지하지 않는다. 안전한 소비자 기술·디지털 생활·생산성 영역의 실제 문제 신호를 넓게 탐색한다.
@@ -124,16 +124,16 @@ Notion의 `작성 완료`는 최종 발행이 아니다.
 일일 탐색은 다음 순서를 따른다.
 
 1. 날짜별 탐색 렌즈를 바꿔 같은 유형으로 수렴하는 편향을 줄인다.
-2. 최소 10개 이상의 서로 다른 Problem Territory를 넓게 탐색한다.
-3. 앵커 연관 / 인접 영역 / 오픈 탐색을 섞되 실제 웹 반복 신호를 우선한다.
-4. 상위 5개 이하만 깊게 검증한다.
-5. 최종 Problem은 최대 1개만 선택한다.
-6. 선택한 Problem에 서로 다른 콘텐츠 콘셉트 2개를 제안하고 Evidence 가치가 높은 하나를 선택한다.
-7. 콘셉트에 맞는 Mission을 설계한다.
-8. 실제 Evidence가 나온 뒤에만 Story Shape와 최종 글을 결정한다.
+2. 내부적으로 최소 10개 이상의 서로 다른 Problem Territory를 넓게 탐색한다.
+3. Firestore의 기존 Problem, 진행 중 Problem, 반려 기억, 향후 발행 글을 보고 실질 중복을 제거한다.
+4. 상위 후보만 깊게 검증하고 최종 Problem은 최대 1개만 선택한다.
+5. 글 콘셉트나 Story Shape를 미리 정하지 않고, 오늘 어떤 행동으로 새로운 Evidence를 만들지에 대한 검증 관점 하나만 고른다.
+6. 사용자가 실제로 할 행동을 생활 언어로 최소화하고, 꼭 남겨야 할 Evidence만 정한다.
+7. 블로그 초안 대신 Story Seed를 남긴다. Story Seed는 실제로 생기면 기록할 장면·변화·예상 밖 결과에 대한 관찰 포인트다.
+8. 실제 Evidence가 들어온 뒤 먼저 `WRITE / RECORD_ONLY`를 판단한다.
+9. `WRITE`일 때만 실제 사건 순서에 따라 Story Shape를 선택하고 Natural Blog를 작성한다.
 
-주제 다양성을 위해 단일 OS·앱·회사 생태계가 후보를 과도하게 점유하지 않게 한다.
-날짜는 특정 주제를 임의 선택하는 장치가 아니라 최신성 경계와 탐색 관점을 바꾸는 시드로 사용한다.
+주제 다양성을 위해 단일 OS·앱·회사 생태계가 후보를 과도하게 점유하지 않게 한다. 날짜는 특정 주제를 임의 선택하는 장치가 아니라 최신성 경계와 탐색 관점을 바꾸는 시드로 사용한다.
 
 ## Daily Prompt 결과 피드백 루프
 
@@ -150,24 +150,37 @@ Daily Prompt에서 ChatGPT Plus가 고른 최종 Problem은 프롬프트 텍스�
 6. `CONTINUE`는 `existingProblemId`로 기존 Problem에 연결한다.
 7. `HOLD`와 `NO_GO`는 Daily Prompt의 판단 이력만 기록하고 새 Problem을 만들지 않는다.
 8. 반영이 끝나면 Daily Research 행의 `Problem ID`를 채우고 `결과 반영` 체크를 자동으로 해제한다.
-9. 다음 Daily Prompt는 Problem ID, 제목, 상태, 선택 콘셉트, 최근 Mission을 기억 블록으로 읽는다.
+9. 다음 Daily Prompt는 Problem ID, 제목, 상태, 검증 관점, 최근 직접 해볼 일, Story Seed을 기억 블록으로 읽는다.
 
 같은 Problem을 제목만 바꾸어 NEW로 반복하지 않는다. 진행 중인 같은 문제라면 CONTINUE를 사용한다.
 Notion은 결과 입력 UI이고 Firestore `problems`가 중복 방지의 원본 기억이다.
 
 
-## Daily Prompt V4 — 조사와 글 초안을 한 번에 만들기
+## Daily Research와 Natural Blog 분리
 
-Daily Prompt는 Problem 선택과 Mission 설계만 하고 끝내지 않는다.
-`NEW` 또는 `CONTINUE`로 실제 Problem이 선택되면 같은 응답에서 **검증 전 블로그 초안**까지 만든다.
+Daily Research의 목적은 글을 생산하는 것이 아니라 **직접 해볼 가치가 있는 문제를 찾는 것**이다.
 
-검증 전 초안은 실제 블로그 본문 형태로 충분히 작성하되 다음을 지킨다.
+Daily Research 출력은 다음까지만 허용한다.
 
-- 웹 조사/공식 문서로 확인 가능한 사실은 서술 가능
-- 직접 하지 않은 행동과 결과를 1인칭 경험으로 만들지 않음
-- 실제 결과가 필요한 부분만 명시적으로 미확정 처리
-- Evidence가 들어오면 초안의 미확정 부분을 OBSERVED 결과로 교체하고 최종본으로 재구성
-- 초안은 발행 보류이며 WordPress 자동 발행 대상이 아님
+- 오늘의 판단과 최종 Problem 0~1개
+- 넓게 살펴본 범위와 유력 후보 소수
+- 검증 관점 1개
+- 오늘 직접 해볼 최소 행동
+- 반드시 남길 Evidence
+- Story Seed
+- `PROBLEM_MEMORY_JSON`
+
+Evidence 전에는 제목/H2/본문/결론을 포함한 블로그 초안을 만들지 않는다.
+
+사용자가 실제 결과를 제공하면 다음 순서를 따른다.
+
+1. OBSERVED / OFFICIAL / INFERRED / UNVERIFIED 분리
+2. `WRITE / RECORD_ONLY` 판단
+3. RECORD_ONLY면 기억만 남기고 글 생성 종료
+4. WRITE면 실제 사건 흐름을 보고 Story Shape 선택
+5. 실제 사건을 중심으로 Natural Blog 작성
+
+최종 글은 Daily Research 구조를 상속하지 않는다. 후보 순위, Mission 순서, Evidence 표를 그대로 목차로 만들지 않으며, `문제 → 원인 → 해결 → 결론` 같은 고정 틀도 기본값으로 사용하지 않는다.
 
 ## Notion 최소 운영 스키마
 
@@ -190,5 +203,5 @@ Daily Prompt는 Problem 선택과 Mission 설계만 하고 끝내지 않는다.
 ## 로컬 우선 테스트
 
 코드 변경 직후 Vercel 배포를 기다리지 않고 `/Users/ungveloper/Desktop/UNG/problem-solving-research-web`에서 `npm run test:local`을 실행한다.
-이 명령은 `.env.local`을 사용한다. 같은 저장소의 개발 서버가 이미 실행 중이면 그 서버를 재사용하고, 없을 때만 임시 포트에 Next 서버를 실행한다. 실제 Firestore/Notion에 대해 V4 Preview 전체 일일 흐름을 호출하며 자신이 시작한 서버만 종료한다.
+이 명령은 `.env.local`을 사용한다. 같은 저장소의 개발 서버가 이미 실행 중이면 그 서버를 재사용하고, 없을 때만 임시 포트에 Next 서버를 실행한다. 실제 Firestore/Notion에 대해 V5 Preview 전체 일일 흐름을 호출하며 자신이 시작한 서버만 종료한다.
 Vercel/GitHub Actions는 로컬 검증이 끝난 뒤 최종 자동화 확인에 사용한다.
