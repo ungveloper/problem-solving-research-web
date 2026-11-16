@@ -25,9 +25,9 @@ function parseDecision(value: unknown): DailySelectionDecision {
 }
 
 function parseStoryMode(value: unknown): StoryMode | undefined {
-  if (value === undefined || value === null || value === "") return undefined;
+  if (value === undefined || value === null || value === "" || value === "PENDING_EVIDENCE") return undefined;
   if (value === "ONE_SHOT" || value === "LIVING_LOG" || value === "SERIES") return value;
-  throw new Error("storyMode는 ONE_SHOT / LIVING_LOG / SERIES 중 하나여야 합니다.");
+  throw new Error("storyMode는 ONE_SHOT / LIVING_LOG / SERIES 중 하나여야 합니다. Evidence 전이면 필드를 생략하세요.");
 }
 
 export function parseDailySelectionPayload(raw: string): DailySelectionPayload {
