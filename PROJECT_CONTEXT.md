@@ -329,6 +329,6 @@ NEW/CONTINUE Daily Research 응답은 리서치 판단과 실제 WordPress 게�
 
 이 형식은 `auto-publisher-web`의 현재 `parsePublicationInput()` / clipboard publication package extractor가 읽는 기존 계약에 맞춘 것이므로 `auto-publisher-web`의 추출 알고리즘을 변경할 필요가 없다.
 
-WordPress 카테고리명은 자동 매칭을 위해 `IT·AI`, `경제·재테크·투자`, `생활·실용정보`, `취업·자격증·직무` 중 하나를 사용한다. 이는 `PROBLEM_MEMORY_JSON.category`와 별개의 발행 카테고리다.
+WordPress 발행 카테고리는 단일 카테고리 `문제 해결`로 고정한다. Rank Math SEO 패키지의 `## 카테고리명` 값과 대표 썸네일 상단 카테고리 pill은 모두 정확히 `문제 해결`을 사용한다. WordPress에 이 이름의 카테고리를 만들어 두면 `auto-publisher-web`의 기존 이름 기반 카테고리 매칭을 그대로 사용할 수 있다. `PROBLEM_MEMORY_JSON.category`는 Firestore Problem의 상세 분야를 기록하는 별도 값이며 주제별로 작성한다.
 
 대표 썸네일은 게시 본문의 Evidence 이미지와 구분한다. 매 NEW/CONTINUE 글마다 주제에 맞는 배경 사진/개념 이미지 위에 약 55~68%의 반투명 로열블루 필터를 씌우고, 상단 중앙의 흰색 카테고리 pill과 중앙~하단의 큰 흰색 한글 핵심 문구 2~3줄을 배치하는 복사/붙여넣기용 생성 프롬프트를 만든다. 우측 상단은 실제 로고를 나중에 얹을 수 있게 비워두며 로고 파일이 없을 때 가짜 로고를 생성하지 않는다.
