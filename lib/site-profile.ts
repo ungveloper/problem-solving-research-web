@@ -2,7 +2,7 @@ import { env } from "@/lib/config";
 import type { SiteProfileRecord } from "@/lib/domain";
 import { getDocument, patchDocument, upsertDocument } from "@/lib/firestore";
 
-const DEFAULT_SCOPES = [
+const LEGACY_TECH_SCOPES = [
   "Mac",
   "iPhone",
   "Windows",
@@ -16,6 +16,24 @@ const DEFAULT_SCOPES = [
   "클라우드",
   "웹사이트 운영",
   "웹서비스 오류",
+];
+
+const DEFAULT_SCOPES = [
+  "로그인·계정·인증·패스키",
+  "결제·구독·환불·온라인 쇼핑",
+  "사진·영상·카메라·미디어 관리",
+  "문서·파일·압축·변환·공유",
+  "백업·복구·기기 변경·데이터 이전",
+  "메신저·메일·알림·연락처",
+  "지도·교통·여행·예약·체크인",
+  "스트리밍·자막·오디오·재생",
+  "스마트폰·PC·브라우저·앱의 일상 동작",
+  "클라우드·동기화·협업",
+  "생산성·메모·캘린더·스프레드시트",
+  "AI 도구·검색·콘텐츠 작성",
+  "스마트홈·주변기기·Bluetooth·USB",
+  "공공 웹서비스·온라인 신청·전자문서",
+  "웹사이트·블로그·온라인 서비스 운영",
 ];
 
 const LEGACY_DEFAULT_PRINCIPLES = [
@@ -63,6 +81,13 @@ const DEFAULT_PRINCIPLES = [
   "반려한 문제군은 다시 추천하지 않는다.",
 ];
 
+function migratedScopes(current: string[]) {
+  const isLegacyDefault =
+    current.length === LEGACY_TECH_SCOPES.length &&
+    current.every((value, index) => value === LEGACY_TECH_SCOPES[index]);
+  return isLegacyDefault ? DEFAULT_SCOPES : current;
+}
+
 function migratedPrinciples(current: string[]) {
   const isLegacyDefault =
     current.length === LEGACY_DEFAULT_PRINCIPLES.length &&
@@ -85,11 +110,15 @@ export async function ensureSiteProfile() {
   const existing = await getDocument<SiteProfileRecord>("siteProfiles", id);
   if (existing) {
     const principles = migratedPrinciples(existing.data.principles ?? []);
+    const activeScopes = migratedScopes(existing.data.activeScopes ?? []);
     const updatedAt = new Date().toISOString();
     const changes: Partial<SiteProfileRecord> = {};
 
     if (JSON.stringify(principles) !== JSON.stringify(existing.data.principles ?? [])) {
       changes.principles = principles;
+    }
+    if (JSON.stringify(activeScopes) !== JSON.stringify(existing.data.activeScopes ?? [])) {
+      changes.activeScopes = activeScopes;
     }
     if (existing.data.phase !== desiredPhase) changes.phase = desiredPhase;
     if (existing.data.wordpressDeferred !== !wordpressConnected) {

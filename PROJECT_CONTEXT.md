@@ -297,3 +297,21 @@ WordPress 연결 후에는 다음 정기 Daily Sync가 게시글을 Firestore `a
 - `WORDPRESS_APPLICATION_PASSWORD` (사이트가 인증을 요구할 때)
 
 `WORDPRESS_BASE_URL`이 설정되면 `siteProfiles/default.phase`는 자동으로 `WORDPRESS_CONNECTED`, `wordpressDeferred`는 `false`로 전환된다.
+
+## Signal-first 주제 발견 계약
+
+Daily Research의 신규 주제 탐색은 제품/OS 중심의 고정 Scope에서 시작하지 않는다. Google Trends, 네이버 검색·데이터랩, 커뮤니티/Q&A, 공식 변경 신호를 먼저 훑은 뒤 실제 사용자의 반복 불편으로 변환한다.
+
+기본 탐색 방향:
+- 외부 실시간 수요 신호 약 40%
+- 커뮤니티 반복 문제 약 25%
+- 기존 범위 밖 인접·무작위 탐색 약 20%
+- Firestore `activeScopes` 약 15%
+
+비율은 quota가 아니라 anchor bias를 막는 방향 가이드다. Trends/DataLab의 검색 관심도는 주제를 자동 채택하는 점수가 아니라 발견과 동률 후보의 tie-breaker로만 사용한다.
+
+`activeScopes` 기본값은 Mac/iPhone/PDF 같은 제품·기술 목록보다 로그인·인증, 결제·예약, 사진·영상, 문서·파일, 백업·복구, 메신저·알림, 지도·이동, 스트리밍, 스마트기기, 공공 웹서비스 등 사용자 행동 중심 영역으로 유지한다. 기존 프로필이 과거 기본 기술 목록과 정확히 같을 때만 새 행동 중심 기본값으로 자동 마이그레이션하고, 사용자가 직접 커스텀한 Scope는 덮어쓰지 않는다.
+
+Google Trends는 현재 급상승 영역을 발견하는 레이더로 사용하며 단순 뉴스/인물/정치/스포츠 화제는 제외한다. 네이버 데이터랩/검색 신호는 한국 사용자 관심도 확인에 활용하되 접근 불가 시 탐색을 중단하지 않는다.
+
+Naver Search Trend API는 NAVER API HUB 이관 중이므로 PROMPT_VALIDATION 단계에서는 필수 API 자격증명을 요구하지 않는다. 향후 직접 수집기를 붙일 때만 NAVER API HUB 키를 optional collector로 추가한다.

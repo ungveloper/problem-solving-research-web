@@ -304,7 +304,7 @@ Firestore ID
 
 ## Daily Research V5 — 실제 경험이 글의 형태를 결정
 
-V5.12의 핵심은 **1인칭 체험형 아이덴티티와 Evidence 밀도 원칙을 유지하면서, Firestore 반영용 PROBLEM_MEMORY_JSON을 블로그 콘텐츠와 시각적으로 완전히 분리하는 것**입니다.
+V5.14의 핵심은 **기존 제품·OS Scope 편향을 줄이고 Google Trends·네이버 검색/데이터랩·커뮤니티 같은 외부 수요 신호에서 먼저 Problem을 발견한 뒤, 중복·직접 검증 가능성·Evidence 가치로 걸러내는 것**입니다.
 
 ```text
 Broad Discovery
@@ -382,3 +382,22 @@ Problem: 진행
 4. 발행할 최종 글을 WordPress에 직접 게시
 
 WordPress 연결 이후의 게시글 수집, Firestore `articles` 저장, Problem 자동 연결, `PUBLISHED`, Notion `발행 완료` 처리는 동기화가 담당합니다.
+
+## Signal-first Discovery
+
+V5.14부터 Daily Research는 기존 `activeScopes`에서 주제를 고르는 방식이 아니라 외부 수요 신호에서 출발합니다.
+
+```text
+Google Trends / Naver 검색·DataLab / 커뮤니티 / 공식 변화
+→ 오늘의 Signal
+→ 실제 사용자 Problem으로 변환
+→ 기존 Firestore Problem과 중복 제거
+→ 직접 검증 가능한 후보만 남김
+→ 최종 0~1개
+```
+
+기존 `activeScopes`는 약 10~15%의 Evergreen 보조 앵커로만 사용합니다. 과거 기본값인 Mac/iPhone/Windows/PDF/Excel 중심 목록은 사용자가 수정하지 않은 기본 프로필에 한해 로그인·인증, 결제·예약, 사진·영상, 문서·파일, 백업·복구, 메신저·알림, 지도·이동, 스트리밍, 스마트기기, 공공서비스 등 행동 중심 Scope로 자동 마이그레이션됩니다.
+
+Google Trends나 Naver DataLab의 관심도는 높은 검색량 자체를 글 선정 기준으로 쓰지 않습니다. 새로운 문제 영역을 발견하거나 비슷한 후보의 우선순위를 정하는 보조 신호로만 사용하고, 반복 불편·직접 검증 가능성·새 Evidence 가치가 최종 판단을 이깁니다.
+
+현재 단계에서는 새로운 API 키가 필요 없습니다. ChatGPT Plus의 웹 조사 단계에서 이 신호를 사용합니다. Naver Search Trend API는 NAVER API HUB 이관 중이므로, 나중에 서버가 데이터를 직접 수집할 필요가 생기면 optional collector와 ENV를 별도로 추가합니다.
