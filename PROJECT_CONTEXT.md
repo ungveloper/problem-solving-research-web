@@ -262,3 +262,38 @@ Daily Research의 목적은 **직접 확인할 가치가 있는 문제를 찾고
 코드 변경 직후 Vercel 배포를 기다리지 않고 `/Users/ungveloper/Desktop/UNG/problem-solving-research-web`에서 `npm run test:local`을 실행한다.
 이 명령은 `.env.local`을 사용한다. 같은 저장소의 개발 서버가 이미 실행 중이면 그 서버를 재사용하고, 없을 때만 임시 포트에 Next 서버를 실행한다. 실제 Firestore/Notion에 대해 V5 Preview 전체 일일 흐름을 호출하며 자신이 시작한 서버만 종료한다.
 Vercel/GitHub Actions는 로컬 검증이 끝난 뒤 최종 자동화 확인에 사용한다.
+
+## 중복 방지 계약
+
+같은 Problem은 제목이나 실험 방법을 바꾸어도 NEW로 다시 만들지 않는다.
+
+중복 방지는 세 단계로 수행한다.
+
+1. Daily Prompt에 기존 Problem의 전체 압축 인덱스를 넣어 ChatGPT Plus가 NEW를 고르기 전에 기존 문제와 대조한다.
+2. 최근 Problem의 상세 정보도 함께 제공해 같은 사용자 문제·증상·원인·Evidence의 반복을 CONTINUE 또는 제외로 판단하게 한다.
+3. 사용자가 `PROBLEM_MEMORY_JSON`을 반영할 때 서버가 제목뿐 아니라 `detailArea`, `concept`, `missionSummary`, `storySeed`의 토큰 겹침을 다시 계산한다. 고신뢰 중복이면 새 Problem 문서를 만들지 않고 `DUPLICATE_BLOCKED`로 처리한다.
+
+중복으로 차단된 Daily Research는 `보류` 상태가 되고 `duplicateOfProblemId`, `duplicateScore`, `duplicateDetectedAt`를 Firestore에 남긴다. 정상 NEW/CONTINUE 결과를 반영한 Daily Research는 `작성 완료`로 바뀐다. NEW Problem 자체는 별도 Notion 행으로 생성되며 `진행` 상태에서 시작한다.
+
+중요: ChatGPT Plus에서 결과를 보기만 하고 `PROBLEM_MEMORY_JSON`을 Notion에 반영하지 않은 테스트는 Firestore가 기억할 수 없다. 이후 중복 방지 대상이 되어야 하는 결과는 반드시 JSON 객체를 `선택 결과 JSON`에 붙여넣고 `결과 반영`을 체크한다.
+
+## 운영자가 수동으로 하는 일
+
+현재 구조에서 일상적으로 사람이 하는 작업은 다음뿐이다.
+
+1. 생성된 Daily Prompt를 ChatGPT Plus에 붙여넣는다.
+2. 답변 마지막 `PROBLEM_MEMORY_JSON` 코드 블록에서 `{ ... }` JSON 객체만 Notion `선택 결과 JSON`에 붙여넣고 `결과 반영`을 체크한다.
+3. 최종적으로 발행할 글을 WordPress에 직접 게시한다.
+
+WordPress 연결 후에는 다음 정기 Daily Sync가 게시글을 Firestore `articles`로 가져오고 기존 Problem과 자동 연결해 `PUBLISHED` 및 Notion `발행 완료`를 관리한다.
+
+## 한 달 뒤 WordPress 연결 작업을 다시 시작할 때
+
+새 ChatGPT 대화나 다른 개발 세션에서 이 저장소를 수정할 때는 먼저 `PROJECT_CONTEXT.md`와 `README.md`를 읽는다. WordPress 연결 작업은 `## WordPress 연결 이후`, `## 운영자가 수동으로 하는 일`, README의 `## WordPress 직접 발행 자동 추적`을 기준으로 이어간다.
+
+필요 환경변수:
+- `WORDPRESS_BASE_URL`
+- `WORDPRESS_USERNAME` (사이트가 인증을 요구할 때)
+- `WORDPRESS_APPLICATION_PASSWORD` (사이트가 인증을 요구할 때)
+
+`WORDPRESS_BASE_URL`이 설정되면 `siteProfiles/default.phase`는 자동으로 `WORDPRESS_CONNECTED`, `wordpressDeferred`는 `false`로 전환된다.

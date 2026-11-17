@@ -73,7 +73,11 @@ export type DailyPromptRecord = {
   notionUrl?: string;
   selectionJson?: string;
   selectionDecision?: DailySelectionDecision;
+  selectionOriginalDecision?: DailySelectionDecision;
   linkedProblemId?: string;
+  duplicateOfProblemId?: string;
+  duplicateScore?: number;
+  duplicateDetectedAt?: string;
   selectionCapturedAt?: string;
   createdAt: string;
   updatedAt: string;

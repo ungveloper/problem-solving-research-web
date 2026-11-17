@@ -73,20 +73,176 @@ function problemIdFor(dateKey: string, title: string) {
   return `p-${dateKey}-${digest}`;
 }
 
-async function findExactExistingProblem(title: string) {
-  const target = normalizeKey(title);
-  const problems = await listDocuments<ProblemRecord>("problems", 500);
-  return problems.find((item) => normalizeKey(item.data.title) === target) ?? null;
+const DUPLICATE_GENERIC_TOKENS = new Set([
+  "문제",
+  "오류",
+  "이슈",
+  "확인",
+  "비교",
+  "방법",
+  "결과",
+  "실제",
+  "직접",
+  "사용",
+  "테스트",
+  "관련",
+  "새로운",
+  "차이",
+  "경우",
+  "파일",
+  "사진",
+  "데이터",
+  "the",
+  "and",
+  "with",
+  "from",
+  "this",
+  "that",
+  "using",
+]);
+
+function duplicateTokens(input?: string) {
+  if (!input) return [] as string[];
+  return [...new Set(
+    input
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/https?:\/\/\S+/g, " ")
+      .split(/[^\p{L}\p{N}]+/gu)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2 && !DUPLICATE_GENERIC_TOKENS.has(token)),
+  )];
+}
+
+function tokenSimilarity(left: string[], right: string[]) {
+  if (left.length === 0 || right.length === 0) return 0;
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+  const shared = [...leftSet].filter((token) => rightSet.has(token)).length;
+  const union = new Set([...leftSet, ...rightSet]).size;
+  const overlap = shared / Math.min(leftSet.size, rightSet.size);
+  const jaccard = union > 0 ? shared / union : 0;
+  return overlap * 0.65 + jaccard * 0.35;
+}
+
+function sharedTokenCount(left: string[], right: string[]) {
+  const rightSet = new Set(right);
+  return [...new Set(left)].filter((token) => rightSet.has(token)).length;
+}
+
+function duplicateProfile(input: {
+  title?: string;
+  detailArea?: string;
+  concept?: string;
+  missionSummary?: string;
+  storySeed?: string;
+}) {
+  const title = duplicateTokens(input.title);
+  const detail = duplicateTokens(input.detailArea);
+  const concept = duplicateTokens(input.concept);
+  const mission = duplicateTokens(input.missionSummary);
+  const story = duplicateTokens(input.storySeed);
+  const all = [...new Set([...title, ...detail, ...concept, ...mission, ...story])];
+  return { title, detail, concept, mission, story, all };
+}
+
+function duplicateScore(payload: DailySelectionPayload, existing: ProblemRecord) {
+  if (payload.title && normalizeKey(payload.title) === normalizeKey(existing.title)) {
+    return {
+      isDuplicate: true,
+      score: 1,
+      reason: "EXACT_TITLE",
+      sharedTokens: 99,
+    };
+  }
+
+  const candidate = duplicateProfile({
+    title: payload.title,
+    detailArea: payload.detailArea,
+    concept: payload.concept,
+    missionSummary: payload.missionSummary,
+    storySeed: payload.storySeed,
+  });
+  const stored = duplicateProfile({
+    title: existing.title,
+    detailArea: existing.detailArea,
+    concept: existing.contentConcept,
+    missionSummary: existing.missionSummary,
+    storySeed: existing.storySeed,
+  });
+
+  const title = tokenSimilarity(candidate.title, stored.title);
+  const detail = tokenSimilarity(candidate.detail, stored.detail);
+  const concept = tokenSimilarity(candidate.concept, stored.concept);
+  const mission = tokenSimilarity(candidate.mission, stored.mission);
+  const story = tokenSimilarity(candidate.story, stored.story);
+  const all = tokenSimilarity(candidate.all, stored.all);
+  const sharedTokens = sharedTokenCount(candidate.all, stored.all);
+
+  let weighted = 0;
+  let weight = 0;
+  const add = (value: number, nextWeight: number, enabled: boolean) => {
+    if (!enabled) return;
+    weighted += value * nextWeight;
+    weight += nextWeight;
+  };
+
+  add(title, 0.30, candidate.title.length > 0 && stored.title.length > 0);
+  add(detail, 0.20, candidate.detail.length > 0 && stored.detail.length > 0);
+  add(concept, 0.25, candidate.concept.length > 0 && stored.concept.length > 0);
+  add(mission, 0.10, candidate.mission.length > 0 && stored.mission.length > 0);
+  add(story, 0.05, candidate.story.length > 0 && stored.story.length > 0);
+  add(all, 0.10, candidate.all.length > 0 && stored.all.length > 0);
+
+  const score = weight > 0 ? weighted / weight : 0;
+  const strongContext = Math.max(detail, concept);
+  const isDuplicate =
+    (score >= 0.68 && sharedTokens >= 4) ||
+    (title >= 0.55 && strongContext >= 0.50 && sharedTokens >= 3) ||
+    (detail >= 0.70 && concept >= 0.65 && sharedTokens >= 3);
+
+  return {
+    isDuplicate,
+    score,
+    reason: isDuplicate ? "SEMANTIC_OVERLAP" : "DISTINCT",
+    sharedTokens,
+  };
+}
+
+async function findPotentialDuplicate(payload: DailySelectionPayload) {
+  const problems = await listDocuments<ProblemRecord>("problems", 2_000);
+  const ranked = problems
+    .map((item) => ({ item, ...duplicateScore(payload, item.data) }))
+    .filter((candidate) => candidate.isDuplicate)
+    .sort((a, b) => b.score - a.score);
+
+  return ranked[0] ?? null;
 }
 
 async function captureNewProblem(dailyId: string, daily: DailyPromptRecord, payload: DailySelectionPayload) {
   if (!payload.title) throw new Error("NEW 결과에는 title이 필요합니다.");
 
-  const existing = await findExactExistingProblem(payload.title);
-  if (existing) {
-    throw new Error(
-      `동일한 Problem이 이미 존재합니다 (${existing.id}: ${existing.data.title}). NEW로 중복 생성하지 말고 CONTINUE 또는 HOLD로 판단하세요.`,
-    );
+  const duplicate = await findPotentialDuplicate(payload);
+  if (duplicate) {
+    const now = new Date().toISOString();
+    await patchDocument("dailyPrompts", dailyId, {
+      status: "HOLD",
+      selectionOriginalDecision: "NEW",
+      selectionDecision: "HOLD",
+      linkedProblemId: duplicate.item.id,
+      duplicateOfProblemId: duplicate.item.id,
+      duplicateScore: Number(duplicate.score.toFixed(4)),
+      duplicateDetectedAt: now,
+      selectionCapturedAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      action: "DUPLICATE_BLOCKED" as const,
+      problemId: duplicate.item.id,
+      duplicateTitle: duplicate.item.data.title,
+      duplicateScore: Number(duplicate.score.toFixed(4)),
+    };
   }
 
   const now = new Date().toISOString();
@@ -124,6 +280,7 @@ async function captureNewProblem(dailyId: string, daily: DailyPromptRecord, payl
 
   await upsertDocument("problems", id, problem);
   await patchDocument("dailyPrompts", dailyId, {
+    status: "ARTICLE_READY",
     selectionDecision: "NEW",
     linkedProblemId: id,
     selectionCapturedAt: now,
@@ -151,6 +308,7 @@ async function captureContinuation(dailyId: string, daily: DailyPromptRecord, pa
     updatedAt: now,
   });
   await patchDocument("dailyPrompts", dailyId, {
+    status: "ARTICLE_READY",
     selectionDecision: "CONTINUE",
     linkedProblemId: existing.id,
     selectionCapturedAt: now,
@@ -188,6 +346,7 @@ export async function captureDailySelectionResult(dailyId: string, raw: string) 
   }
 
   await patchDocument("dailyPrompts", dailyId, {
+    status: "HOLD",
     selectionDecision: payload.decision,
     selectionCapturedAt: now,
     updatedAt: now,

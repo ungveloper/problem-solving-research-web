@@ -231,7 +231,7 @@ export async function createDailyPromptNotionPage(id: string, daily: DailyPrompt
       type: "paragraph",
       paragraph: {
         rich_text: richText(
-          "ChatGPT 답변 맨 마지막의 PROBLEM_MEMORY_JSON만 '선택 결과 JSON'에 붙여넣고 '결과 반영'을 체크하세요. 다음 동기화가 Firestore Problem으로 저장하거나 기존 Problem에 연결합니다.",
+          "ChatGPT 답변 맨 마지막 PROBLEM_MEMORY_JSON 코드 블록에서 { 로 시작해 } 로 끝나는 JSON 객체만 '선택 결과 JSON'에 붙여넣고 '결과 반영'을 체크하세요. PROBLEM_MEMORY_JSON 라벨과 ``` 표시는 붙여넣지 않습니다. 다음 동기화가 중복을 다시 검사한 뒤 Firestore Problem으로 저장하거나 기존 Problem에 연결합니다.",
         ),
       },
     },
@@ -374,11 +374,23 @@ export async function syncNotionStatuses() {
 
       if (importRequested) {
         if (!selectionJson) throw new Error(`${firestoreId}: 결과 반영이 체크됐지만 선택 결과 JSON이 비어 있습니다.`);
-        await captureDailySelectionResult(firestoreId, selectionJson);
+        const captured = await captureDailySelectionResult(firestoreId, selectionJson);
+        const dailyStatus: ProblemStatus =
+          captured.action === "DUPLICATE_BLOCKED" ||
+          captured.decision === "HOLD" ||
+          captured.decision === "NO_GO"
+            ? "HOLD"
+            : "ARTICLE_READY";
+
+        await patchDocument("dailyPrompts", firestoreId, {
+          status: dailyStatus,
+          updatedAt: new Date().toISOString(),
+        });
         await notionFetch(`/pages/${page.id}`, {
           method: "PATCH",
           body: JSON.stringify({
             properties: {
+              [env.notionStatusProperty]: { status: { name: notionStatusByInternal[dailyStatus] } },
               "결과 반영": { checkbox: false },
             },
           }),

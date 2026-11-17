@@ -8,7 +8,7 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v5.12";
+const PROMPT_VERSION = "daily-session-v5.13";
 
 const EXPLORATION_LENSES = [
   "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
@@ -114,6 +114,27 @@ function buildActiveProblemsBlock(problems: Array<{ id: string; data: ProblemRec
       ].filter(Boolean).join("\n"),
     ),
     "진행 중인 문제에 실제로 다음 검증 행동이 있으면 CONTINUE를 우선한다. 단지 연재를 유지하기 위해 문제를 늘이지 않는다.",
+  ].join("\n");
+}
+
+function buildHistoricalProblemDedupBlock(problems: Array<{ id: string; data: ProblemRecord }>) {
+  if (problems.length === 0) return "";
+
+  const rows = [...problems]
+    .sort((a, b) => String(b.data.updatedAt ?? "").localeCompare(String(a.data.updatedAt ?? "")))
+    .slice(0, 1_000)
+    .map((item, index) => {
+      const concept = item.data.contentConcept?.slice(0, 120) ?? "";
+      return `${index + 1}. ${item.id} | ${item.data.title} | ${item.data.detailArea ?? "미지정"}${concept ? ` | ${concept}` : ""}`;
+    });
+
+  return [
+    "[전체 Problem 중복 방지 인덱스 — NEW 선택 전 반드시 대조]",
+    ...rows,
+    "위 인덱스와 같은 사용자 문제·같은 증상·같은 데이터 대상·같은 핵심 원인을 다루는 후보는 제목, 표현, 실험 방법을 바꿔도 NEW로 선택하지 않는다.",
+    "새로운 실험 방법이나 다른 글 제목만으로는 새 Problem이 아니다. 기존 Problem이 진행 중이고 실제로 새로운 Evidence를 추가할 수 있을 때만 CONTINUE를 검토한다.",
+    "기존 Problem이 이미 PUBLISHED/REJECTED이거나 새 정보가 실질적으로 없으면 그 후보를 버리고 다른 문제를 찾는다.",
+    "최종 NEW를 고르기 직전에 이 인덱스와 한 번 더 대조한다.",
   ].join("\n");
 }
 
@@ -378,7 +399,7 @@ function postEvidenceNaturalBlogInstructions() {
 export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
   const profileDoc = await ensureSiteProfile();
   const [problemDocs, rejectionDocs, articleDocs] = await Promise.all([
-    listDocuments<ProblemRecord>("problems", 300),
+    listDocuments<ProblemRecord>("problems", 1_000),
     listDocuments<RejectionRecord>("rejections", 300),
     listDocuments<ArticleRecord>("articles", 300),
   ]);
@@ -406,6 +427,7 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
     buildDailyLensBlock(dateKey),
     mode === "CONTINUATION_FIRST" ? continuationInstructions() : discoveryInstructions(),
     buildActiveProblemsBlock(activeProblems),
+    buildHistoricalProblemDedupBlock(problemDocs),
     buildProblemMemoryBlock(problemDocs),
     buildRejectionBlock(rejections),
     buildArticleBlock(articles),

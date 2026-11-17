@@ -346,3 +346,39 @@ publishedDetectedAt
 ```
 
 따라서 `PROBLEM_MEMORY_JSON`이 먼저 Firestore Problem으로 반영되어 있다는 전제에서, WordPress ENV 연결 후에는 최종 글 제목을 자유롭게 정해 직접 발행하기만 하면 대부분의 발행 이력은 다음 동기화에서 자동 관리됩니다.
+
+## Daily Research 중복 방지와 상태 변화
+
+같은 주제를 제목만 바꾸어 NEW로 반복하지 않도록 두 겹으로 막습니다.
+
+- Daily Prompt에는 기존 Problem의 압축 중복 인덱스와 최근 상세 기억을 함께 넣습니다.
+- `PROBLEM_MEMORY_JSON`을 반영할 때 서버가 `title + detailArea + concept + missionSummary + storySeed`를 다시 비교합니다.
+
+고신뢰 중복이면 새 `problems` 문서를 만들지 않고 해당 Daily Research를 `보류`로 처리하며 기존 Problem ID와 중복 점수를 기록합니다.
+
+Notion 상태는 다음처럼 움직입니다.
+
+```text
+DAILY_RESEARCH 생성
+추천됨
+  ↓ JSON 객체 붙여넣기 + 결과 반영
+정상 NEW / CONTINUE → DAILY_RESEARCH: 작성 완료
+중복 차단 / HOLD / NO_GO → DAILY_RESEARCH: 보류
+
+NEW가 정상 반영되면 별도 Problem 행 생성
+Problem: 진행
+  ↓ 실제 검증/운영
+테스트 중 → 글쓰기 준비 → 작성 완료
+  ↓ WordPress 실제 게시 감지
+발행 완료
+```
+
+따라서 DAILY_RESEARCH 행과 Problem 행은 서로 다른 기록입니다. Daily Research는 조사 세션의 처리 여부를 나타내고, Problem 행은 실제 주제의 수명주기를 나타냅니다.
+
+사용자가 매일 수동으로 하는 작업은:
+1. Daily Prompt를 ChatGPT Plus에 붙여넣기
+2. 답변 마지막 JSON 코드 블록에서 `{ ... }` 객체만 `선택 결과 JSON`에 붙여넣기
+3. `결과 반영` 체크
+4. 발행할 최종 글을 WordPress에 직접 게시
+
+WordPress 연결 이후의 게시글 수집, Firestore `articles` 저장, Problem 자동 연결, `PUBLISHED`, Notion `발행 완료` 처리는 동기화가 담당합니다.
