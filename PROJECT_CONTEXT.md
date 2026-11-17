@@ -195,8 +195,8 @@ Daily Prompt에서 ChatGPT Plus가 고른 최종 Problem은 프롬프트 텍스�
 
 운영 흐름:
 
-1. Daily Prompt는 답변 마지막에 `PROBLEM_MEMORY_JSON`을 출력하도록 요구한다.
-2. 사용자는 Notion Daily Research 행의 `선택 결과 JSON` 속성에 그 JSON만 붙여넣는다.
+1. Daily Prompt는 사용자용 1~5 섹션이 끝난 뒤 `---` 수평선 아래 번호 없는 `운영용 데이터 — WordPress에 복사하지 않음` 블록으로 `PROBLEM_MEMORY_JSON`을 출력하도록 요구한다.
+2. 사용자는 그 운영용 블록의 JSON만 Notion Daily Research 행의 `선택 결과 JSON` 속성에 붙여넣는다.
 3. `결과 반영` 체크박스를 켠다.
 4. 다음 GitHub Action이 Notion을 읽고 결과를 Firestore에 반영한다.
 5. `NEW`는 새 `problems` 문서로 생성하고 상태를 `IN_PROGRESS`로 둔다.
@@ -225,7 +225,7 @@ Daily Research의 목적은 **직접 확인할 가치가 있는 문제를 찾고
 - 직접 테스트 결과는 별도 결과 보고서가 아니라 블로그 본문에 통합
 - 필요한 경우 이미지 삽입 위치와 생성 프롬프트 또는 실제 캡처 계획
 - 실제 관찰 후 갱신해야 할 핵심 포인트 소수
-- `PROBLEM_MEMORY_JSON`
+- 사용자용 1~5 섹션이 끝난 뒤 수평선으로 분리한 번호 없는 운영용 `PROBLEM_MEMORY_JSON` 블록
 
 내부 행동 시나리오는 최종 글에 `배우`라는 존재를 드러내기 위한 장치가 아니다. 블로그에서는 그 행동을 화자 `나`의 1인칭 체험으로 바꿔 자연스럽게 서술한다. 다만 아직 확인되지 않은 성공·실패·오류·해결 결과는 실제 결과처럼 꾸미지 않고 중립적인 확인 지점으로 남긴다.
 

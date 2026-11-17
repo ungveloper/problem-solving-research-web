@@ -8,7 +8,7 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v5.11";
+const PROMPT_VERSION = "daily-session-v5.12";
 
 const EXPLORATION_LENSES = [
   "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
@@ -198,9 +198,11 @@ function continuationInstructions() {
 
 function resultMemoryContract() {
   return [
-    "[운영 DB로 되먹일 PROBLEM_MEMORY_JSON]",
-    "Daily Research 답변의 맨 마지막에 반드시 JSON 코드 블록을 하나만 추가한다.",
-    "이 JSON은 Notion의 '선택 결과 JSON' 속성에 붙여넣어 Firestore Problem 기억으로 반영하는 운영 메타데이터다.",
+    "[운영용 데이터 — 블로그/WordPress 본문과 완전히 분리]",
+    "Daily Research 답변의 모든 사용자용 콘텐츠가 끝난 뒤 수평선 '---'을 넣고, 번호 없는 '운영용 데이터 — WordPress에 복사하지 않음' 문구를 표시한다.",
+    "그 아래에 'PROBLEM_MEMORY_JSON'을 일반 텍스트 라벨로 한 번만 표시하고, 바로 다음에 JSON 코드 블록 하나만 출력한다.",
+    "PROBLEM_MEMORY_JSON에는 H2/H3나 '6.' 같은 번호를 붙이지 않는다. 블로그 초안, 이미지 계획, 실제 관찰 후 업데이트할 포인트와 같은 콘텐츠 섹션처럼 보이게 만들지 않는다.",
+    "이 JSON은 Notion의 '선택 결과 JSON' 속성에 붙여넣어 Firestore Problem 기억으로 반영하는 운영 메타데이터이며 WordPress 글에는 복사하지 않는다.",
     "JSON 전체를 1,400자 이내로 유지하고 설명문·인용·URL·마크다운을 JSON 값 안에 넣지 않는다.",
     "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary/storySeed를 채운다. missionSummary는 사용자 지시 체크리스트가 아니라 화자가 어떤 행동을 거쳐 확인할지 한 문장으로 요약한다.",
     "storySeed는 배열이 아니라 짧은 문자열 하나로 쓴다. 여러 장면이면 ' / '로 압축해 한 문자열 안에 넣는다.",
@@ -450,13 +452,14 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
     ].join("\n"),
     [
       "[출력 형식]",
-      "아래 1~6 외의 추가 최상위 번호 섹션을 만들지 않는다. 직접 실험 결과가 있어도 별도 '직접 비교 결과' 섹션으로 빼지 말고 3번 블로그 초안 안에 녹인다.",
+      "사용자용 최상위 번호 섹션은 아래 1~5만 사용한다. 직접 실험 결과가 있어도 별도 '직접 비교 결과' 섹션으로 빼지 말고 3번 블로그 초안 안에 녹인다.",
       "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO와 최종 Problem 0~1개. 선택 이유는 핵심만 짧게 설명. Problem 범위가 실제 Evidence보다 넓을 수 있다는 점은 구분",
       "2. 오늘 살펴본 범위: 넓게 본 영역을 2~4줄로 요약하고, 최종 선택 외에 정말 의미 있었던 후보가 있으면 최대 2개만 짧게 표시",
       "3. 문제 해결소 블로그 초안: NEW/CONTINUE이면 자연스러운 제목과 본문을 작성하되, 본문 길이와 구체성은 현재 세션에서 실제 확보한 OBSERVED 경험량에 맞춤. 내부 행동 시나리오는 실제로 수행된 행동만 화자 나의 1인칭 완료형 경험으로 사용하고, 수행하지 않은 행동은 경험처럼 꾸미지 않음. 배우·관찰자·한 사용자라는 표현은 본문에서 금지. 공식 자료는 실제로 확인한 배경으로 필요한 만큼만 녹이고, 문서의 절차를 직접 실행한 것처럼 긴 사용법으로 재작성하지 않음. 직접 Evidence가 적으면 짧은 확인 기록으로 끝내도 됨. 현재 세션에서 도구로 직접 얻은 Evidence가 있으면 이 본문에 통합하고 별도의 결과 보고서로 반복하지 않음. 제목/H2/핵심 판단은 실제 OBSERVED 환경보다 넓게 쓰지 않음. 출력 전 중복·늘어짐을 자체 편집하되 1인칭 체험감과 자유로운 구성은 보존. 본문은 일반 Markdown만 사용하고 서식용 HTML/JSX/MDX/XML 태그나 HTML entity는 금지. 이미지가 필요하면 실제 들어갈 자리마다 '[이미지 N 삽입: 설명 — 종류]' 마커를 본문에 직접 표시. 실제 제공 파일이 없으면 첨부/다운로드 문구를 만들지 않음",
       "4. 이미지 계획: 필요한 경우에만 개수 제한 없이 제안. 본문 마커와 동일한 번호·설명을 사용해 각 항목에 삽입 위치/목적/종류를 적고, 생성 이미지라면 상세 생성 프롬프트를 제공. 실제 화면·오류·전후 Evidence는 '실제 캡처(생성 금지)'로 표시. 외부 참고 이미지나 검색 썸네일은 넣지 않음. 불필요하면 생성 이미지 없음",
       "5. 실제 관찰 후 업데이트할 포인트: 아직 직접 확인하지 못한 환경/장면 또는 최종본에서 반드시 확인해야 할 결과를 최대 3개만 짧게 표시",
-      "6. PROBLEM_MEMORY_JSON: 답변 맨 마지막에 운영 DB 반영용 JSON 코드 블록 출력",
+      "5번까지 끝난 뒤 '---' 수평선으로 사용자 콘텐츠를 종료한다. 이후에는 번호 없는 운영용 데이터 블록만 둔다.",
+      "운영용 데이터 블록 형식: '운영용 데이터 — WordPress에 복사하지 않음' → 'PROBLEM_MEMORY_JSON' → JSON 코드 블록. 이 블록에 H2/H3나 번호를 붙이지 않는다.",
     ].join("\n"),
     resultMemoryContract(),
   ].filter(Boolean);
