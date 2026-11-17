@@ -124,6 +124,9 @@ export async function ensureSiteProfile() {
     if (existing.data.wordpressDeferred !== !wordpressConnected) {
       changes.wordpressDeferred = !wordpressConnected;
     }
+    if (existing.data.dailyPromptTime === "08:00 Asia/Seoul") {
+      changes.dailyPromptTime = "05:00 Asia/Seoul";
+    }
 
     if (Object.keys(changes).length > 0) {
       changes.updatedAt = updatedAt;
@@ -140,7 +143,7 @@ export async function ensureSiteProfile() {
     activeScopes: DEFAULT_SCOPES,
     principles: DEFAULT_PRINCIPLES,
     wordpressDeferred: !wordpressConnected,
-    dailyPromptTime: "08:00 Asia/Seoul",
+    dailyPromptTime: "05:00 Asia/Seoul",
     createdAt: now,
     updatedAt: now,
   };

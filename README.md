@@ -304,7 +304,7 @@ Firestore ID
 
 ## Daily Research V5 — 실제 경험이 글의 형태를 결정
 
-V5.14의 핵심은 **기존 제품·OS Scope 편향을 줄이고 Google Trends·네이버 검색/데이터랩·커뮤니티 같은 외부 수요 신호에서 먼저 Problem을 발견한 뒤, 중복·직접 검증 가능성·Evidence 가치로 걸러내는 것**입니다.
+V5.15의 핵심은 **V5.14의 Signal-first 탐색과 중복 방지 알고리즘을 유지하면서, 매일 05:00 KST 1회 실행하고 결과를 auto-publisher-web에 그대로 복사/붙여넣을 수 있는 WordPress 게시 패키지와 대표 썸네일 프롬프트까지 함께 출력하는 것**입니다.
 
 ```text
 Broad Discovery
@@ -401,3 +401,23 @@ Google Trends / Naver 검색·DataLab / 커뮤니티 / 공식 변화
 Google Trends나 Naver DataLab의 관심도는 높은 검색량 자체를 글 선정 기준으로 쓰지 않습니다. 새로운 문제 영역을 발견하거나 비슷한 후보의 우선순위를 정하는 보조 신호로만 사용하고, 반복 불편·직접 검증 가능성·새 Evidence 가치가 최종 판단을 이깁니다.
 
 현재 단계에서는 새로운 API 키가 필요 없습니다. ChatGPT Plus의 웹 조사 단계에서 이 신호를 사용합니다. Naver Search Trend API는 NAVER API HUB 이관 중이므로, 나중에 서버가 데이터를 직접 수집할 필요가 생기면 optional collector와 ENV를 별도로 추가합니다.
+
+## 05:00 KST Daily Sync + auto-publisher-web 복붙 호환
+
+정기 GitHub Actions는 하루 1회 `05:00 Asia/Seoul`에 실행합니다. cron은 전날 `20:00 UTC`인 `0 20 * * *`입니다.
+
+V5.15부터 NEW/CONTINUE 결과에는 `auto-publisher-web`의 `/wordpress` 페이지가 그대로 인식하는 게시 패키지가 포함됩니다. 응답 전체를 복사해 붙여넣어도 퍼블리셔가 `# 1. 게시용 본문`을 WordPress 본문으로 추출하고, `# 4. Rank Math SEO 패키지`에서 다음 값을 자동으로 채울 수 있게 합니다.
+
+- 게시 제목: `# 1. 게시용 본문` 안의 실제 H1
+- 포커스 키워드
+- SEO Title
+- 영문 퍼머링크
+- SEO Description
+- 카테고리
+- 태그
+
+메타데이터는 기존 `auto-publisher-web` 파서와 맞추기 위해 `포커스 키워드`, `SEO title`, `영문 퍼머링크`, `SEO description`, `글 태그`, `카테고리명` 라벨을 그대로 사용하고 값은 fenced code block으로 출력합니다.
+
+`# 3. 대표 이미지 생성 프롬프트`에는 첨부 예시 계열의 썸네일을 만들 수 있는 복사/붙여넣기용 프롬프트가 포함됩니다. 주제에 맞는 배경 위에 반투명 로열블루 오버레이를 씌우고, 작은 흰색 카테고리 pill과 굵은 흰색 한글 핵심 문구를 배치하며 우측 상단은 실제 로고 삽입 공간으로 비워둡니다.
+
+`auto-publisher-web` 자체는 이미 이 구조를 처리하므로 이번 변경에서는 해당 저장소의 파싱 알고리즘을 수정하지 않습니다.

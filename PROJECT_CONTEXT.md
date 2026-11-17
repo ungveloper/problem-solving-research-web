@@ -22,7 +22,7 @@ WordPress 연동 코드는 유지하되 `WORDPRESS_BASE_URL`이 없으면 모든
 우선순위는 다음과 같다.
 
 1. Vercel 배포
-2. GitHub Actions 매일 08:00 KST 실행
+2. GitHub Actions 매일 05:00 KST 실행
 3. Firestore의 운영 상태를 읽어 일일 ChatGPT Plus용 프롬프트 생성
 4. 생성 프롬프트를 같은 Notion 운영 DB에 저장
 5. 사용자가 프롬프트를 ChatGPT Plus에 직접 붙여넣음
@@ -315,3 +315,20 @@ Daily Research의 신규 주제 탐색은 제품/OS 중심의 고정 Scope에서
 Google Trends는 현재 급상승 영역을 발견하는 레이더로 사용하며 단순 뉴스/인물/정치/스포츠 화제는 제외한다. 네이버 데이터랩/검색 신호는 한국 사용자 관심도 확인에 활용하되 접근 불가 시 탐색을 중단하지 않는다.
 
 Naver Search Trend API는 NAVER API HUB 이관 중이므로 PROMPT_VALIDATION 단계에서는 필수 API 자격증명을 요구하지 않는다. 향후 직접 수집기를 붙일 때만 NAVER API HUB 키를 optional collector로 추가한다.
+
+## 05:00 KST 실행 및 auto-publisher-web 게시 패키지 계약
+
+GitHub Actions의 정기 Daily Sync는 하루 1회, 매일 `05:00 Asia/Seoul`에 실행한다. GitHub cron은 UTC이므로 `.github/workflows/daily-sync.yml`에는 `0 20 * * *`(전날 20:00 UTC)를 사용한다. 수동 `workflow_dispatch` Preview 실행은 계속 허용한다.
+
+NEW/CONTINUE Daily Research 응답은 리서치 판단과 실제 WordPress 게시물을 분리한다. 최종 게시용 결과물은 `auto-publisher-web`의 `/wordpress` 입력 파서가 이미 지원하는 다음 구조를 정확히 사용한다.
+
+- `# 1. 게시용 본문`: 실제 H1 제목과 WordPress 본문
+- `# 2. 게시 전 확인 자료`: 미검증 범위와 운영 참고
+- `# 3. 대표 이미지 생성 프롬프트`: 복사/붙여넣기용 썸네일 프롬프트 + 대체 텍스트
+- `# 4. Rank Math SEO 패키지`: 포커스 키워드, SEO title, 영문 퍼머링크, SEO description, 글 태그, 카테고리명
+
+이 형식은 `auto-publisher-web`의 현재 `parsePublicationInput()` / clipboard publication package extractor가 읽는 기존 계약에 맞춘 것이므로 `auto-publisher-web`의 추출 알고리즘을 변경할 필요가 없다.
+
+WordPress 카테고리명은 자동 매칭을 위해 `IT·AI`, `경제·재테크·투자`, `생활·실용정보`, `취업·자격증·직무` 중 하나를 사용한다. 이는 `PROBLEM_MEMORY_JSON.category`와 별개의 발행 카테고리다.
+
+대표 썸네일은 게시 본문의 Evidence 이미지와 구분한다. 매 NEW/CONTINUE 글마다 주제에 맞는 배경 사진/개념 이미지 위에 약 55~68%의 반투명 로열블루 필터를 씌우고, 상단 중앙의 흰색 카테고리 pill과 중앙~하단의 큰 흰색 한글 핵심 문구 2~3줄을 배치하는 복사/붙여넣기용 생성 프롬프트를 만든다. 우측 상단은 실제 로고를 나중에 얹을 수 있게 비워두며 로고 파일이 없을 때 가짜 로고를 생성하지 않는다.
