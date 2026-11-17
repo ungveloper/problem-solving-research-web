@@ -141,11 +141,20 @@ Notion에서 `반려`한 문제는 Firestore `rejections`에 저장한다.
 
 ## WordPress 연결 이후
 
-WordPress를 연결하면 REST API로 글/카테고리를 Firestore에 동기화한다.
-프롬프트는 전체 본문을 매번 넣지 않고 관련 카테고리/관련 글만 선별한다.
+`WORDPRESS_BASE_URL`을 설정하면 사이트 프로필은 자동으로 `WORDPRESS_CONNECTED`로 전환되고 WordPress REST API로 발행 글/카테고리를 Firestore에 동기화한다. 공개 글 조회에 인증이 필요하지 않은 사이트라면 Base URL만으로 읽을 수 있고, 필요한 환경에서는 `WORDPRESS_USERNAME`과 `WORDPRESS_APPLICATION_PASSWORD`를 함께 사용한다.
 
-Notion의 `작성 완료`는 최종 발행이 아니다.
-실제 WordPress Sync에서 게시글을 확인했을 때만 `발행 완료`로 승격한다.
+사용자는 WordPress에서 평소처럼 직접 글을 발행한다. 다음 정기 Daily Sync 또는 수동 WordPress Sync가 실제 `publish` 상태의 게시글을 읽고 Firestore `articles`에 저장한 뒤 기존 Problem과 연결한다.
+
+자동 연결 우선순위:
+1. Problem에 이미 WordPress URL이 있으면 URL 정확 일치
+2. Problem 제목과 WordPress 제목이 정규화 후 정확 일치
+3. 제목이 달라도 Problem의 제목·세부 영역·검증 관점·Mission·Story Seed와 WordPress 제목·카테고리·본문의 의미 신호가 충분히 겹치고, 다른 후보보다 명확히 높은 경우에만 CONTENT 매칭
+
+CONTENT 매칭은 Problem 선택 시각보다 너무 오래된 글을 후보에서 제외하고, 점수가 비슷한 후보가 둘 이상이면 자동 연결하지 않는다. 잘못된 발행 완료 처리보다 미연결 상태를 우선한다.
+
+매칭되면 `problems`에 `status=PUBLISHED`, `wordpressUrl`, `linkedArticleId`, `publicationMatchMethod`, `publicationMatchScore`, `publishedDetectedAt`를 기록하고 Notion 상태도 `발행 완료`로 갱신한다. 제목을 블로그에 맞게 자유롭게 바꿔도 고신뢰 내용 매칭이 가능하므로 Problem 제목과 최종 글 제목을 억지로 같게 유지할 필요가 없다.
+
+Notion의 `작성 완료`는 최종 발행이 아니다. 실제 WordPress Sync에서 게시글을 확인하고 Problem과 고신뢰로 연결했을 때만 `발행 완료`로 승격한다.
 
 ## 자동화의 경계
 

@@ -80,7 +80,10 @@ export type SyncedWordPressPost = {
   title: string;
   slug: string;
   link: string;
+  publishedAt: string;
   modified: string;
+  categoryNames: string[];
+  matchText: string;
 };
 
 export async function syncWordPress() {
@@ -106,7 +109,7 @@ export async function syncWordPress() {
   }
 
   const posts = await fetchAll<WpPost>(
-    "/wp-json/wp/v2/posts?_fields=id,date,modified,slug,status,link,title,content,excerpt,categories,tags",
+    "/wp-json/wp/v2/posts?status=publish&_fields=id,date,modified,slug,status,link,title,content,excerpt,categories,tags",
   );
 
   const syncedPosts: SyncedWordPressPost[] = [];
@@ -137,7 +140,18 @@ export async function syncWordPress() {
       syncedAt: new Date().toISOString(),
     });
 
-    syncedPosts.push({ id: post.id, title, slug: post.slug, link: post.link, modified: post.modified });
+    syncedPosts.push({
+      id: post.id,
+      title,
+      slug: post.slug,
+      link: post.link,
+      publishedAt: post.date,
+      modified: post.modified,
+      categoryNames,
+      matchText: `${title} ${post.slug} ${categoryNames.join(" ")} ${excerptText} ${contentText.slice(0, 12_000)}`
+        .toLowerCase()
+        .slice(0, 20_000),
+    });
   }
 
   return { skipped: false, categories: categories.length, articles: posts.length, posts: syncedPosts };

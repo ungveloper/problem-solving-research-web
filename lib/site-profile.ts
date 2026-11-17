@@ -78,13 +78,28 @@ function migratedPrinciples(current: string[]) {
 
 export async function ensureSiteProfile() {
   const id = env.siteId;
+  const wordpressConnected = Boolean(env.wordpressBaseUrl);
+  const desiredPhase: SiteProfileRecord["phase"] = wordpressConnected
+    ? "WORDPRESS_CONNECTED"
+    : "PROMPT_VALIDATION";
   const existing = await getDocument<SiteProfileRecord>("siteProfiles", id);
   if (existing) {
     const principles = migratedPrinciples(existing.data.principles ?? []);
+    const updatedAt = new Date().toISOString();
+    const changes: Partial<SiteProfileRecord> = {};
+
     if (JSON.stringify(principles) !== JSON.stringify(existing.data.principles ?? [])) {
-      const updatedAt = new Date().toISOString();
-      await patchDocument("siteProfiles", id, { principles, updatedAt });
-      return { ...existing, data: { ...existing.data, principles, updatedAt } };
+      changes.principles = principles;
+    }
+    if (existing.data.phase !== desiredPhase) changes.phase = desiredPhase;
+    if (existing.data.wordpressDeferred !== !wordpressConnected) {
+      changes.wordpressDeferred = !wordpressConnected;
+    }
+
+    if (Object.keys(changes).length > 0) {
+      changes.updatedAt = updatedAt;
+      await patchDocument("siteProfiles", id, changes);
+      return { ...existing, data: { ...existing.data, ...changes } };
     }
     return existing;
   }
@@ -92,10 +107,10 @@ export async function ensureSiteProfile() {
   const now = new Date().toISOString();
   const profile: SiteProfileRecord = {
     siteId: id,
-    phase: "PROMPT_VALIDATION",
+    phase: desiredPhase,
     activeScopes: DEFAULT_SCOPES,
     principles: DEFAULT_PRINCIPLES,
-    wordpressDeferred: true,
+    wordpressDeferred: !wordpressConnected,
     dailyPromptTime: "08:00 Asia/Seoul",
     createdAt: now,
     updatedAt: now,

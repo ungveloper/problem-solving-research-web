@@ -47,6 +47,9 @@ export type ProblemRecord = {
   notionUrl?: string;
   wordpressUrl?: string;
   linkedArticleId?: string;
+  publicationMatchMethod?: "URL" | "TITLE" | "CONTENT";
+  publicationMatchScore?: number;
+  publishedDetectedAt?: string;
   rejectionReason?: string;
   rejectionScope?: RejectionScope;
   contentConcept?: string;
