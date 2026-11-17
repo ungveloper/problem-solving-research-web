@@ -8,7 +8,7 @@ import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib
 import { ensureSiteProfile } from "@/lib/site-profile";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v5.9";
+const PROMPT_VERSION = "daily-session-v5.10";
 
 const EXPLORATION_LENSES = [
   "업데이트·버전 변경 뒤 생긴 회귀나 기본 동작 변화",
@@ -289,6 +289,20 @@ function outputStructureGuardInstructions() {
   ].join("\n");
 }
 
+function plainMarkdownAndArtifactGuardInstructions() {
+  return [
+    "[본문 형식·제공물 정직성 가드]",
+    "블로그 본문과 이미지 계획은 일반 Markdown으로만 작성한다. 서식을 위해 raw HTML, JSX, MDX, XML 스타일 태그를 사용하지 않는다.",
+    "금지 예: <text>, </text>, <div>, <span>, <small>, style/color/size 속성, 그리고 이를 이스케이프한 \\\\<text ...\\\\> 형태. &nbsp;, &#x20; 같은 서식용 HTML entity도 직접 출력하지 않는다.",
+    "짧은 주석이나 캡션이 필요하면 일반 문장, 괄호, Markdown 이탤릭 등으로 쓴다. 예: '*테스트 환경에서 직접 확인한 값. JSON 시각은 한국시간 기준.*'",
+    "글 주제 자체가 HTML/JSX/MDX 코드를 다루는 경우에만 해당 코드를 fenced code block 안의 예제로 표시할 수 있다. 서식이나 메타데이터를 표현하기 위한 태그는 코드 블록 밖에 쓰지 않는다.",
+    "현재 응답에서 실제로 생성되어 접근 가능한 파일·링크가 제공되지 않았다면 '첨부했다', '다운로드할 수 있다', '파일 다운로드'라고 쓰지 않는다. 제공물이 없으면 해당 문장을 통째로 생략한다.",
+    "실제로 사용자에게 제공 가능한 파일이 생성됐다면 반드시 같은 응답에 실제 접근 가능한 링크나 첨부가 있어야 하며, 없는 링크를 가정하거나 파일명을 다운로드 문구처럼 꾸미지 않는다.",
+    "이미지 계획에는 실제로 사용할 캡처 또는 생성 계획만 적는다. 검색 중 발견한 외부 참고 이미지, 썸네일, 제3자 블로그 이미지를 장식용으로 끼워 넣지 않는다.",
+    "실제 캡처가 Evidence인 경우 외부 웹 이미지를 대체 증거나 참고 증거처럼 제시하지 않는다. 아직 캡처가 없으면 캡처할 화면과 위치만 설명한다.",
+  ].join("\\n");
+}
+
 function editorialQualityInstructions() {
   return [
     "[초안 작성 후 편집자 자체 점검 — 품질만 다듬고 구조는 통일하지 않음]",
@@ -399,6 +413,7 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
     firstPersonIdentityGuardInstructions(),
     evidenceScopeGuardInstructions(),
     outputStructureGuardInstructions(),
+    plainMarkdownAndArtifactGuardInstructions(),
     editorialQualityInstructions(),
     imagePlanInstructions(),
     storySeedInstructions(),
@@ -412,6 +427,8 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "초안을 출력하기 전에 중복 문단, 억지 분량, 애매한 마지막 문단을 편집자 관점에서 한 번 더 줄이되, 1인칭 체험형 행동 흐름은 절대 일반 가이드 말투로 약화시키지 않는다.",
       "제목·H2·핵심 문장·마지막 판단은 실제 OBSERVED 환경보다 넓게 일반화하지 않는다. 직접 확인한 도구/환경의 범위를 글에서 숨기지 않는다.",
       "현재 세션에서 직접 얻은 Evidence는 블로그 초안에 통합하고 같은 내용을 별도 상위 결과 섹션으로 다시 반복하지 않는다.",
+      "블로그 본문과 이미지 계획은 일반 Markdown만 사용한다. 서식용 HTML/JSX/MDX 태그나 HTML entity를 출력하지 않는다.",
+      "실제로 제공되지 않은 파일을 첨부·다운로드 가능한 것처럼 쓰지 않고, 이미지 계획에 검색 중 발견한 외부 참고 이미지를 끼워 넣지 않는다.",
       "이미지는 필요한 경우에만 제안하고, 실제 Evidence 스크린샷과 생성 가능한 설명 이미지를 명확히 구분한다. 제안한 이미지는 본문 안의 정확한 위치에도 같은 번호의 삽입 마커를 표시한다.",
     ].join("\n"),
     [
@@ -419,8 +436,8 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
       "아래 1~6 외의 추가 최상위 번호 섹션을 만들지 않는다. 직접 실험 결과가 있어도 별도 '직접 비교 결과' 섹션으로 빼지 말고 3번 블로그 초안 안에 녹인다.",
       "1. 오늘의 판단: CONTINUE / NEW / HOLD / NO_GO와 최종 Problem 0~1개. 선택 이유는 핵심만 짧게 설명. Problem 범위가 실제 Evidence보다 넓을 수 있다는 점은 구분",
       "2. 오늘 살펴본 범위: 넓게 본 영역을 2~4줄로 요약하고, 최종 선택 외에 정말 의미 있었던 후보가 있으면 최대 2개만 짧게 표시",
-      "3. 문제 해결소 블로그 초안: NEW/CONTINUE이면 반드시 자연스러운 제목과 본문을 작성. 내부 행동 시나리오를 화자 나의 1인칭 체험 서술로 변환하고, 배우·관찰자·한 사용자라는 표현은 본문에서 금지. 리서치/공식 자료는 필요한 만큼만 녹임. 현재 세션에서 도구로 직접 얻은 Evidence가 있으면 이 본문에 통합하고 별도의 결과 보고서로 반복하지 않음. 제목/H2/핵심 판단은 실제 OBSERVED 환경보다 넓게 쓰지 않음. 출력 전 중복·늘어짐·애매한 마무리를 자체 편집하되 1인칭 체험감은 보존. 이미지가 필요하면 실제 들어갈 자리마다 '[이미지 N 삽입: 설명 — 종류]' 마커를 본문에 직접 표시",
-      "4. 이미지 계획: 필요한 경우에만 개수 제한 없이 제안. 본문 마커와 동일한 번호·설명을 사용해 각 항목에 삽입 위치/목적/종류를 적고, 생성 이미지라면 상세 생성 프롬프트를 제공. 실제 화면·오류·전후 Evidence는 '실제 캡처(생성 금지)'로 표시. 불필요하면 생성 이미지 없음",
+      "3. 문제 해결소 블로그 초안: NEW/CONTINUE이면 반드시 자연스러운 제목과 본문을 작성. 내부 행동 시나리오를 화자 나의 1인칭 체험 서술로 변환하고, 배우·관찰자·한 사용자라는 표현은 본문에서 금지. 리서치/공식 자료는 필요한 만큼만 녹임. 현재 세션에서 도구로 직접 얻은 Evidence가 있으면 이 본문에 통합하고 별도의 결과 보고서로 반복하지 않음. 제목/H2/핵심 판단은 실제 OBSERVED 환경보다 넓게 쓰지 않음. 출력 전 중복·늘어짐을 자체 편집하되 1인칭 체험감과 자유로운 구성은 보존. 본문은 일반 Markdown만 사용하고 서식용 HTML/JSX/MDX/XML 태그나 HTML entity는 금지. 이미지가 필요하면 실제 들어갈 자리마다 '[이미지 N 삽입: 설명 — 종류]' 마커를 본문에 직접 표시. 실제 제공 파일이 없으면 첨부/다운로드 문구를 만들지 않음",
+      "4. 이미지 계획: 필요한 경우에만 개수 제한 없이 제안. 본문 마커와 동일한 번호·설명을 사용해 각 항목에 삽입 위치/목적/종류를 적고, 생성 이미지라면 상세 생성 프롬프트를 제공. 실제 화면·오류·전후 Evidence는 '실제 캡처(생성 금지)'로 표시. 외부 참고 이미지나 검색 썸네일은 넣지 않음. 불필요하면 생성 이미지 없음",
       "5. 실제 관찰 후 업데이트할 포인트: 아직 직접 확인하지 못한 환경/장면 또는 최종본에서 반드시 확인해야 할 결과를 최대 3개만 짧게 표시",
       "6. PROBLEM_MEMORY_JSON: 답변 맨 마지막에 운영 DB 반영용 JSON 코드 블록 출력",
     ].join("\n"),
