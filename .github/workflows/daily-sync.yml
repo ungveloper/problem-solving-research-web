@@ -3,8 +3,8 @@ name: Daily prompt and content state sync
 on:
   workflow_dispatch:
   schedule:
-    # 05:00 Asia/Seoul = 20:00 UTC (previous day)
-    - cron: "0 20 * * *"
+    # 05:17 Asia/Seoul = 20:17 UTC (previous day)
+    - cron: "17 20 * * *"
 
 jobs:
   sync:

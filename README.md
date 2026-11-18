@@ -12,7 +12,7 @@
 매일 GitHub Actions가 Firestore의 상태를 읽어 ChatGPT Plus용 프롬프트를 생성하고, 같은 Notion 운영 DB에 새 페이지로 저장합니다.
 
 ```text
-GitHub Actions (매일 08:00 KST)
+GitHub Actions (매일 05:17 KST)
         ↓
 Notion 상태 → Firestore 동기화
         ↓
@@ -121,7 +121,7 @@ APP_BASE_URL=https://배포된-vercel-주소
 CRON_SECRET=Vercel의 CRON_SECRET과 동일
 ```
 
-Workflow는 매일 08:00 KST에 `/api/cron/daily`를 호출합니다. `workflow_dispatch`로 수동 실행도 가능합니다.
+Workflow는 매일 05:17 KST에 `/api/cron/daily`를 호출하도록 예약합니다. `workflow_dispatch`로 수동 실행도 가능합니다. GitHub의 예약 실행은 지연되거나 누락될 수 있습니다.
 
 ## 5. 첫 일일 프롬프트 테스트
 
@@ -304,7 +304,7 @@ Firestore ID
 
 ## Daily Research V5 — 실제 경험이 글의 형태를 결정
 
-V5.15의 핵심은 **V5.14의 Signal-first 탐색과 중복 방지 알고리즘을 유지하면서, 매일 05:00 KST 1회 실행하고 결과를 auto-publisher-web에 그대로 복사/붙여넣을 수 있는 WordPress 게시 패키지와 대표 썸네일 프롬프트까지 함께 출력하는 것**입니다.
+V5.15의 핵심은 **V5.14의 Signal-first 탐색과 중복 방지 알고리즘을 유지하면서, 매일 한 번 실행하고 결과를 auto-publisher-web에 그대로 복사/붙여넣을 수 있는 WordPress 게시 패키지와 대표 썸네일 프롬프트까지 함께 출력하는 것**입니다. 현재 예약 실행 시각은 05:17 KST입니다.
 
 ```text
 Broad Discovery
@@ -402,9 +402,9 @@ Google Trends나 Naver DataLab의 관심도는 높은 검색량 자체를 글 �
 
 현재 단계에서는 새로운 API 키가 필요 없습니다. ChatGPT Plus의 웹 조사 단계에서 이 신호를 사용합니다. Naver Search Trend API는 NAVER API HUB 이관 중이므로, 나중에 서버가 데이터를 직접 수집할 필요가 생기면 optional collector와 ENV를 별도로 추가합니다.
 
-## 05:00 KST Daily Sync + auto-publisher-web 복붙 호환
+## 05:17 KST Daily Sync + auto-publisher-web 복붙 호환
 
-정기 GitHub Actions는 하루 1회 `05:00 Asia/Seoul`에 실행합니다. cron은 전날 `20:00 UTC`인 `0 20 * * *`입니다.
+정기 GitHub Actions는 하루 1회 `05:17 Asia/Seoul`에 실행하도록 예약합니다. cron은 전날 `20:17 UTC`인 `17 20 * * *`입니다.
 
 V5.15부터 NEW/CONTINUE 결과에는 `auto-publisher-web`의 `/wordpress` 페이지가 그대로 인식하는 게시 패키지가 포함됩니다. 응답 전체를 복사해 붙여넣어도 퍼블리셔가 `# 1. 게시용 본문`을 WordPress 본문으로 추출하고, `# 4. Rank Math SEO 패키지`에서 다음 값을 자동으로 채울 수 있게 합니다.
 

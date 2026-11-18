@@ -22,7 +22,7 @@ WordPress 연동 코드는 유지하되 `WORDPRESS_BASE_URL`이 없으면 모든
 우선순위는 다음과 같다.
 
 1. Vercel 배포
-2. GitHub Actions 매일 05:00 KST 실행
+2. GitHub Actions 매일 05:17 KST 실행
 3. Firestore의 운영 상태를 읽어 일일 ChatGPT Plus용 프롬프트 생성
 4. 생성 프롬프트를 같은 Notion 운영 DB에 저장
 5. 사용자가 프롬프트를 ChatGPT Plus에 직접 붙여넣음
@@ -316,9 +316,9 @@ Google Trends는 현재 급상승 영역을 발견하는 레이더로 사용하�
 
 Naver Search Trend API는 NAVER API HUB 이관 중이므로 PROMPT_VALIDATION 단계에서는 필수 API 자격증명을 요구하지 않는다. 향후 직접 수집기를 붙일 때만 NAVER API HUB 키를 optional collector로 추가한다.
 
-## 05:00 KST 실행 및 auto-publisher-web 게시 패키지 계약
+## 05:17 KST 실행 및 auto-publisher-web 게시 패키지 계약
 
-GitHub Actions의 정기 Daily Sync는 하루 1회, 매일 `05:00 Asia/Seoul`에 실행한다. GitHub cron은 UTC이므로 `.github/workflows/daily-sync.yml`에는 `0 20 * * *`(전날 20:00 UTC)를 사용한다. 수동 `workflow_dispatch` Preview 실행은 계속 허용한다.
+GitHub Actions의 정기 Daily Sync는 하루 1회, 매일 `05:17 Asia/Seoul`에 실행한다. GitHub cron은 UTC이므로 `.github/workflows/daily-sync.yml`에는 `17 20 * * *`(전날 20:17 UTC)를 사용한다. 수동 `workflow_dispatch` Preview 실행은 계속 허용한다.
 
 NEW/CONTINUE Daily Research 응답은 리서치 판단과 실제 WordPress 게시물을 분리한다. 최종 게시용 결과물은 `auto-publisher-web`의 `/wordpress` 입력 파서가 이미 지원하는 다음 구조를 정확히 사용한다.
 

@@ -124,8 +124,11 @@ export async function ensureSiteProfile() {
     if (existing.data.wordpressDeferred !== !wordpressConnected) {
       changes.wordpressDeferred = !wordpressConnected;
     }
-    if (existing.data.dailyPromptTime === "08:00 Asia/Seoul") {
-      changes.dailyPromptTime = "05:00 Asia/Seoul";
+    if (
+      existing.data.dailyPromptTime === "08:00 Asia/Seoul" ||
+      existing.data.dailyPromptTime === "05:00 Asia/Seoul"
+    ) {
+      changes.dailyPromptTime = "05:17 Asia/Seoul";
     }
 
     if (Object.keys(changes).length > 0) {
@@ -143,7 +146,7 @@ export async function ensureSiteProfile() {
     activeScopes: DEFAULT_SCOPES,
     principles: DEFAULT_PRINCIPLES,
     wordpressDeferred: !wordpressConnected,
-    dailyPromptTime: "05:00 Asia/Seoul",
+    dailyPromptTime: "05:17 Asia/Seoul",
     createdAt: now,
     updatedAt: now,
   };
