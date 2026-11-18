@@ -123,6 +123,24 @@ CRON_SECRET=Vercel의 CRON_SECRET과 동일
 
 Workflow는 매일 05:17 KST에 `/api/cron/daily`를 호출하도록 예약합니다. `workflow_dispatch`로 수동 실행도 가능합니다. GitHub의 예약 실행은 지연되거나 누락될 수 있습니다.
 
+### Actions Variables로 일일 예약 자동화 켜고 끄기
+
+Repository → **Settings → Secrets and variables → Actions → Variables → New repository variable**에서 다음 값을 생성합니다.
+
+```text
+Name: DAILY_SYNC_ENABLED
+Value: true
+```
+
+- `true`: 예약된 매일 **05:17 KST** 실행의 `sync` 작업을 수행합니다.
+- `false`: 예약 실행이 생성되어도 `sync` 작업을 **Skipped** 처리합니다. Vercel API, Firestore, Notion 호출은 하지 않습니다.
+- 변수를 만들지 않았거나 다른 값을 입력한 경우도 안전하게 **Skipped** 처리합니다. 값은 소문자 `true` 또는 `false`로 입력하세요.
+- `Run workflow`로 실행하는 수동 `workflow_dispatch`는 이 변수와 무관하게 **항상 허용**합니다. 수동 실행은 기존과 같이 Preview 경로를 호출하므로 실제 테스트 데이터가 생길 수 있습니다.
+
+`DAILY_SYNC_ENABLED`는 GitHub **Variables**에 설정합니다. Vercel 환경변수나 GitHub Secrets에 넣어도 이 토글은 동작하지 않습니다. `APP_BASE_URL`, `CRON_SECRET`은 기존 GitHub **Secrets**에 그대로 유지합니다.
+
+변경된 변수 값은 이후 새로 시작되는 예약 실행부터 적용됩니다. **Skipped** 기록은 정상적인 OFF 상태이며, GitHub 자체의 예약 이벤트 발생을 차단하는 설정은 아닙니다.
+
 ## 5. 첫 일일 프롬프트 테스트
 
 Actions를 기다리지 않고 즉시 테스트하려면:

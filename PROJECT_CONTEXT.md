@@ -320,6 +320,8 @@ Naver Search Trend API는 NAVER API HUB 이관 중이므로 PROMPT_VALIDATION �
 
 GitHub Actions의 정기 Daily Sync는 하루 1회, 매일 `05:17 Asia/Seoul`에 실행한다. GitHub cron은 UTC이므로 `.github/workflows/daily-sync.yml`에는 `17 20 * * *`(전날 20:17 UTC)를 사용한다. 수동 `workflow_dispatch` Preview 실행은 계속 허용한다.
 
+GitHub Actions Repository Variables의 `DAILY_SYNC_ENABLED`가 정확히 문자열 `true`일 때에만 예약(`schedule`) 실행의 `sync` 작업을 수행한다. `false`나 미설정이면 예약 실행을 Skipped 처리해 API·Firestore·Notion 요청을 하지 않는다. `workflow_dispatch`는 설정값과 무관하게 허용한다(기존 Preview 동작 유지). 이 토글은 GitHub Variables에서 관리하며 Secrets나 Vercel 환경변수로 대체하지 않는다.
+
 NEW/CONTINUE Daily Research 응답은 리서치 판단과 실제 WordPress 게시물을 분리한다. 최종 게시용 결과물은 `auto-publisher-web`의 `/wordpress` 입력 파서가 이미 지원하는 다음 구조를 정확히 사용한다.
 
 - `# 1. 게시용 본문`: 실제 H1 제목과 WordPress 본문
