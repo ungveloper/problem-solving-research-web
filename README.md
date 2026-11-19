@@ -135,7 +135,7 @@ Value: true
 - `true`: 예약된 매일 **05:17 KST** 실행의 `sync` 작업을 수행합니다.
 - `false`: 예약 실행이 생성되어도 `sync` 작업을 **Skipped** 처리합니다. Vercel API, Firestore, Notion 호출은 하지 않습니다.
 - 변수를 만들지 않았거나 다른 값을 입력한 경우도 안전하게 **Skipped** 처리합니다. 값은 소문자 `true` 또는 `false`로 입력하세요.
-- `Run workflow`로 실행하는 수동 `workflow_dispatch`는 이 변수와 무관하게 **항상 허용**합니다. 수동 실행은 기존과 같이 Preview 경로를 호출하므로 실제 테스트 데이터가 생길 수 있습니다.
+- `Run workflow`로 실행하는 수동 `workflow_dispatch`는 이 변수와 무관하게 **항상 허용**합니다. `check_only=false`(기본값)에서는 기존 Preview 경로를 호출하므로 실제 테스트 데이터가 생길 수 있습니다. `check_only=true`를 선택하면 `preflight` 진단 작업만 실행하고 Firestore/Notion API는 호출하지 않습니다.
 
 `DAILY_SYNC_ENABLED`는 GitHub **Variables**에 설정합니다. Vercel 환경변수나 GitHub Secrets에 넣어도 이 토글은 동작하지 않습니다. `APP_BASE_URL`, `CRON_SECRET`은 기존 GitHub **Secrets**에 그대로 유지합니다.
 
@@ -422,7 +422,7 @@ Google Trends나 Naver DataLab의 관심도는 높은 검색량 자체를 글 �
 
 ## 05:17 KST Daily Sync + auto-publisher-web 복붙 호환
 
-정기 GitHub Actions는 하루 1회 `05:17 Asia/Seoul`에 실행하도록 예약합니다. cron은 전날 `20:17 UTC`인 `17 20 * * *`입니다.
+정기 GitHub Actions는 하루 1회 `05:17 Asia/Seoul`에 실행하도록 예약합니다. cron은 전날 `20:17 UTC`인 `17 20 * * 0-6`(매일)입니다. 이전 식과 실행 시각은 같고, GitHub 스케줄 등록을 새로고침하기 위해 cron 문자열을 변경했습니다.
 
 V5.15부터 NEW/CONTINUE 결과에는 `auto-publisher-web`의 `/wordpress` 페이지가 그대로 인식하는 게시 패키지가 포함됩니다. 응답 전체를 복사해 붙여넣어도 퍼블리셔가 `# 1. 게시용 본문`을 WordPress 본문으로 추출하고, `# 4. Rank Math SEO 패키지`에서 다음 값을 자동으로 채울 수 있게 합니다.
 

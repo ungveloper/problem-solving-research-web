@@ -2,14 +2,38 @@ name: Daily prompt and content state sync
 
 on:
   workflow_dispatch:
+    inputs:
+      check_only:
+        description: "GitHub Actions 트리거만 확인 (Firestore/Notion 변경 없음)"
+        type: boolean
+        required: false
+        default: false
   schedule:
     # 05:17 Asia/Seoul = 20:17 UTC (previous day)
-    - cron: "17 20 * * *"
+    # 0-6 means every day; equivalent schedule with a changed cron string
+    # to refresh registration / scheduled actor on GitHub.
+    - cron: "17 20 * * 0-6"
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain trigger and repository toggle (no API writes)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          DAILY_SYNC_ENABLED: ${{ vars.DAILY_SYNC_ENABLED }}
+          CHECK_ONLY: ${{ inputs.check_only }}
+        run: |
+          echo "Event: $EVENT_NAME"
+          echo "Schedule: ${SCHEDULE:-none}"
+          echo "DAILY_SYNC_ENABLED: ${DAILY_SYNC_ENABLED:-unset}"
+          echo "Manual check only: ${CHECK_ONLY:-false}"
+
   sync:
-    # Scheduled runs are opt-in; manual Preview remains available.
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.DAILY_SYNC_ENABLED == 'true' }}
+    needs: preflight
+    # Scheduled runs require opt-in. Manual check_only skips all API/DB writes.
+    if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.check_only) || (github.event_name == 'schedule' && vars.DAILY_SYNC_ENABLED == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

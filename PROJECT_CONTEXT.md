@@ -318,7 +318,7 @@ Naver Search Trend API는 NAVER API HUB 이관 중이므로 PROMPT_VALIDATION �
 
 ## 05:17 KST 실행 및 auto-publisher-web 게시 패키지 계약
 
-GitHub Actions의 정기 Daily Sync는 하루 1회, 매일 `05:17 Asia/Seoul`에 실행한다. GitHub cron은 UTC이므로 `.github/workflows/daily-sync.yml`에는 `17 20 * * *`(전날 20:17 UTC)를 사용한다. 수동 `workflow_dispatch` Preview 실행은 계속 허용한다.
+GitHub Actions의 정기 Daily Sync는 하루 1회, 매일 `05:17 Asia/Seoul`에 실행한다. GitHub cron은 UTC이므로 `.github/workflows/daily-sync.yml`에는 `17 20 * * 0-6`(전날 20:17 UTC, 일요일~토요일)을 사용한다. 05:17 실행 시각은 유지하면서 GitHub 예약 트리거 등록을 갱신하기 위해 동등한 cron 표현으로 변경했다. 예약 이벤트는 GitHub 측에서 지연되거나 누락될 수 있다. 수동 `check_only=true`는 외부 API 호출과 DB 쓰기 없이 이벤트/변수 진단만 수행한다. 수동 `workflow_dispatch` Preview 실행은 계속 허용한다.
 
 GitHub Actions Repository Variables의 `DAILY_SYNC_ENABLED`가 정확히 문자열 `true`일 때에만 예약(`schedule`) 실행의 `sync` 작업을 수행한다. `false`나 미설정이면 예약 실행을 Skipped 처리해 API·Firestore·Notion 요청을 하지 않는다. `workflow_dispatch`는 설정값과 무관하게 허용한다(기존 Preview 동작 유지). 이 토글은 GitHub Variables에서 관리하며 Secrets나 Vercel 환경변수로 대체하지 않는다.
 
