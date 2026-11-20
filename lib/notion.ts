@@ -190,6 +190,7 @@ export async function createProblemNotionPage(id: string, problem: ProblemRecord
     method: "POST",
     body: JSON.stringify({
       parent: { type: "data_source_id", data_source_id: env.notionDataSourceId },
+      icon: { type: "emoji", emoji: "✔️" },
       properties: baseProblemProperties(id, problem),
       children,
     }),
@@ -241,6 +242,7 @@ export async function createDailyPromptNotionPage(id: string, daily: DailyPrompt
     method: "POST",
     body: JSON.stringify({
       parent: { type: "data_source_id", data_source_id: env.notionDataSourceId },
+      icon: { type: "emoji", emoji: "✔️" },
       properties: baseDailyPromptProperties(id, daily),
       children,
     }),
