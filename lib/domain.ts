@@ -22,6 +22,8 @@ export type DailySelectionPayload = {
   title?: string;
   category?: string;
   detailArea?: string;
+  serviceName?: string;
+  problemFamily?: string;
   concept?: string;
   whyRecommended?: string;
   missionSummary?: string;
@@ -34,6 +36,8 @@ export type ProblemRecord = {
   title: string;
   category?: string;
   detailArea?: string;
+  serviceName?: string;
+  problemFamily?: string;
   whyRecommended?: string;
   status: ProblemStatus;
   mode: ProblemMode;

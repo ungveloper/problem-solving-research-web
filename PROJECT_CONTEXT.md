@@ -334,3 +334,13 @@ NEW/CONTINUE Daily Research 응답은 리서치 판단과 실제 WordPress 게�
 WordPress 발행 카테고리는 단일 카테고리 `문제 해결`로 고정한다. Rank Math SEO 패키지의 `## 카테고리명` 값과 대표 썸네일 상단 카테고리 pill은 모두 정확히 `문제 해결`을 사용한다. WordPress에 이 이름의 카테고리를 만들어 두면 `auto-publisher-web`의 기존 이름 기반 카테고리 매칭을 그대로 사용할 수 있다. `PROBLEM_MEMORY_JSON.category`는 Firestore Problem의 상세 분야를 기록하는 별도 값이며 주제별로 작성한다.
 
 대표 썸네일은 게시 본문의 Evidence 이미지와 구분한다. 매 NEW/CONTINUE 글마다 주제에 맞는 배경 사진/개념 이미지 위에 약 55~68%의 반투명 로열블루 필터를 씌우고, 상단 중앙의 흰색 카테고리 pill과 중앙~하단의 큰 흰색 한글 핵심 문구 2~3줄을 배치하는 복사/붙여넣기용 생성 프롬프트를 만든다. 우측 상단은 실제 로고를 나중에 얹을 수 있게 비워두며 로고 파일이 없을 때 가짜 로고를 생성하지 않는다.
+
+## 최근 30일 서비스·문제군 다양성 보정
+
+`daily-session-v5.19`부터 Daily Research를 만들 때 직전 30개 **달력 날짜**의 `dailyPrompts/daily-YYYY-MM-DD`에서 실제로 `NEW` 또는 `CONTINUE`로 확정·반영된 선택 이력을 읽는다. 오늘 날짜, 아직 결과 반영하지 않은 프롬프트, `HOLD`/`NO_GO`, 중복 차단된 NEW, Preview 일일 프롬프트 자체는 통계에서 제외하지만, Preview에서 실제 Problem으로 반영된 선택은 정규 기록과 중복되지 않게 보조 1회 집계할 수 있다. 같은 Problem을 다른 날 CONTINUE한 기록은 그날의 탐색 주제 1회로 센다. 정규 일일 기록이 없지만 날짜가 남은 별도 Problem 기록은 중복 없이 보조 집계할 수 있다.
+
+새 `PROBLEM_MEMORY_JSON`의 선택 결과는 기존 키에 더해 선택적인 `serviceName`(실제로 특정할 수 있는 대표 앱·서비스·플랫폼)과 `problemFamily`(사용자 행동·증상 중심의 문제군)를 담을 수 있다. `lib/daily-result.ts`는 이 두 키를 Firestore `problems`에 저장하고 CONTINUE에서 제공하면 업데이트한다. 과거 기록은 이름이 확인되는 경우만 분류하며, 애매하면 미분류로 남긴다. 서비스와 문제군은 WordPress 단일 카테고리 `문제 해결`과 별개다.
+
+프롬프트는 실제 선택 횟수의 상위 분포와 최근 7일 집중 여부를 표시하고, 4건 이상 기록이 확보된 경우 최근 30일 같은 서비스/문제군 3회 이상 또는 최근 7일 2회 이상 반복됐을 때 유사한 NEW 후보의 비교 우선순위를 낮추도록 지시한다. **코드가 신규 문제를 자동 반려하거나 서비스·주제를 금지하지는 않는다.** 실제 반복 수요와 새로운 Evidence 가치가 강하면 예외를 허용하고, 기존 전체 Problem 중복·반려 규칙과 CONTINUE의 추가 검증 가치가 우선한다.
+
+일일 프롬프트 조합 때 읽기 전용 Firestore GET 요청이 이전 날짜 최대 30건 추가된다. 운영 DB를 초기화하거나 과거 Notion 페이지를 다시 만들지 않는다. GitHub Actions 05:17 KST 및 `DAILY_SYNC_ENABLED` 토글을 유지한다. Google Trends·네이버·커뮤니티의 실시간 검색은 기존처럼 사용자가 프롬프트를 ChatGPT에 붙여넣은 뒤 수행하며, 서버가 외부 신호를 사전에 자동 수집하는 것으로 오해하지 않는다.

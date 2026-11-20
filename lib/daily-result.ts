@@ -59,6 +59,8 @@ export function parseDailySelectionPayload(raw: string): DailySelectionPayload {
     title: text("title"),
     category: text("category"),
     detailArea: text("detailArea"),
+    serviceName: text("serviceName"),
+    problemFamily: text("problemFamily"),
     concept: text("concept"),
     whyRecommended: text("whyRecommended"),
     missionSummary: text("missionSummary"),
@@ -260,6 +262,8 @@ async function captureNewProblem(dailyId: string, daily: DailyPromptRecord, payl
     title: payload.title,
     category: payload.category,
     detailArea: payload.detailArea,
+    serviceName: payload.serviceName,
+    problemFamily: payload.problemFamily,
     whyRecommended: payload.whyRecommended,
     status: "IN_PROGRESS",
     mode: "NEW",
@@ -298,6 +302,8 @@ async function captureContinuation(dailyId: string, daily: DailyPromptRecord, pa
   const now = new Date().toISOString();
   await patchDocument("problems", existing.id, {
     status: "IN_PROGRESS",
+    ...(payload.serviceName ? { serviceName: payload.serviceName } : {}),
+    ...(payload.problemFamily ? { problemFamily: payload.problemFamily } : {}),
     ...(payload.concept ? { contentConcept: payload.concept } : {}),
     ...(payload.missionSummary ? { missionSummary: payload.missionSummary } : {}),
     ...(payload.storySeed ? { storySeed: payload.storySeed } : {}),

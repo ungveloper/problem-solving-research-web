@@ -6,9 +6,10 @@ import type {
 } from "@/lib/domain";
 import { getDocument, listDocuments, patchDocument, upsertDocument } from "@/lib/firestore";
 import { ensureSiteProfile } from "@/lib/site-profile";
+import { buildRecentTopicDiversityBlock, previousDateKeys } from "@/lib/topic-diversity";
 
 const ACTIVE_STATUSES = ["IN_PROGRESS", "TESTING", "READY_TO_WRITE", "ARTICLE_READY"];
-const PROMPT_VERSION = "daily-session-v5.18";
+const PROMPT_VERSION = "daily-session-v5.19";
 
 const EXPLORATION_LENSES = [
   "로그인·인증·계정 복구 과정에서 갑자기 막히는 지점",
@@ -245,12 +246,13 @@ function resultMemoryContract() {
     "이 JSON은 Notion의 '선택 결과 JSON' 속성에 붙여넣어 Firestore Problem 기억으로 반영하는 운영 메타데이터이며 WordPress 글에는 복사하지 않는다.",
     "JSON 전체를 1,400자 이내로 유지하고 설명문·인용·URL·마크다운을 JSON 값 안에 넣지 않는다.",
     "NEW이면 title/category/detailArea/concept/whyRecommended/missionSummary/storySeed를 채운다. missionSummary는 사용자 지시 체크리스트가 아니라 화자가 어떤 행동을 거쳐 확인할지 한 문장으로 요약한다.",
+    "NEW 결과에는 가능하면 serviceName(실제 문제의 대표 앱·서비스·플랫폼 이름 하나)과 problemFamily(서비스와 독립적인 사용자 행동·불편 문제군, 예: 파일 동기화 누락)를 넣는다. 확인할 수 없거나 특정 서비스가 없다면 serviceName을 생략한다. 비슷한 문제군은 매번 같은 짧은 표현을 사용하고 추정 브랜드명을 만들지 않는다.",
     "storySeed는 배열이 아니라 짧은 문자열 하나로 쓴다. 여러 장면이면 ' / '로 압축해 한 문자열 안에 넣는다.",
     "concept는 블로그 형식이나 Story Shape가 아니라 '무엇을 확인할지'에 대한 검증 관점이다.",
     "Evidence 전에는 storyMode를 새로 정하지 않는다. 기존 CONTINUE Problem에 이미 storyMode가 있더라도 오늘 실제 결과가 바뀌면 Evidence 이후 다시 판단할 수 있다.",
     "CONTINUE이면 existingProblemId를 Problem 기억 인덱스의 정확한 ID로 채운다.",
     "HOLD/NO_GO이면 decision과 짧은 whyRecommended만 남기고 없는 필드는 생략한다.",
-    "예시 키: decision, title, category, detailArea, concept, whyRecommended, missionSummary, storySeed, existingProblemId",
+    "예시 키: decision, title, category, detailArea, serviceName, problemFamily, concept, whyRecommended, missionSummary, storySeed, existingProblemId",
   ].join("\n");
 }
 
@@ -473,6 +475,17 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
     listDocuments<RejectionRecord>("rejections", 300),
     listDocuments<ArticleRecord>("articles", 300),
   ]);
+  // Last 30 *completed calendar dates*, excluding the date being generated.
+  // The first lookup warms the cached OAuth token before parallel Firestore GETs.
+  const recentKeys = previousDateKeys(dateKey);
+  const firstChoice = await getDocument<DailyPromptRecord>("dailyPrompts", `daily-${recentKeys[0]}`);
+  const remainingChoices = await Promise.all(
+    recentKeys.slice(1).map((key) => getDocument<DailyPromptRecord>("dailyPrompts", `daily-${key}`)),
+  );
+  // Canonical daily documents only: preview runs never skew these statistics.
+  const recentChoices = [firstChoice, ...remainingChoices]
+    .filter((choice): choice is NonNullable<typeof choice> => choice !== null)
+    .map((choice) => ({ id: choice.id, dateKey: choice.data.dateKey, data: choice.data }));
 
   const activeProblems = problemDocs
     .filter((item) => ACTIVE_STATUSES.includes(item.data.status))
@@ -496,6 +509,7 @@ export async function composeDailySessionPrompt(dateKey = koreaDateKey()) {
     externalSignalDiscoveryInstructions(),
     buildDailyLensBlock(dateKey),
     buildAnchorBlock(profileDoc.data),
+    buildRecentTopicDiversityBlock(dateKey, recentChoices, problemDocs),
     mode === "CONTINUATION_FIRST" ? continuationInstructions() : discoveryInstructions(),
     buildActiveProblemsBlock(activeProblems),
     buildHistoricalProblemDedupBlock(problemDocs),
